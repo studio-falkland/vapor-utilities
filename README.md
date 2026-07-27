@@ -9,8 +9,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-EUPL--1.2-blue.svg" alt="License: EUPL-1.2"></a>
 </p>
 
-# VaporUtilities
-
 Utility extensions for [Vapor](https://github.com/vapor/vapor) applications.
 
 ## Installation
