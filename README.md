@@ -22,12 +22,13 @@ dependencies: [
 ],
 ```
 
-Then add `VaporUtilities` to your target dependencies:
+Then add the products you need to your target dependencies:
 
 ```swift
 .target(name: "App", dependencies: [
     .product(name: "Vapor", package: "vapor"),
     .product(name: "VaporUtilities", package: "vapor-utilities"),
+    .product(name: "FluentPGVector", package: "vapor-utilities"),
 ]),
 ```
 
@@ -85,6 +86,53 @@ The `APP_URL` environment variable is read automatically and used as the default
 
 ```env
 APP_URL=https://example.com
+```
+
+## FluentPGVector
+
+Fluent-native pgvector support: a `@Vector` property wrapper and `QueryBuilder` extensions
+for cosine distance search with the `<=>` operator.
+
+### Migration
+
+```swift
+import FluentPGVector
+
+try await database.schema("chunks")
+    .field("embedding", .vector(dimensions: 2560))
+    .create()
+```
+
+### Model
+
+```swift
+final class Chunk: Model {
+    @Vector(key: "embedding", dimensions: 2560)
+    var embedding: [Double]?
+}
+```
+
+### Sort by cosine distance
+
+Orders results by `field <=> ?::vector` without selecting the distance as a column.
+
+```swift
+Chunk.query(on: db)
+    .filter(\.$source == "example.com")
+    .sort(Chunk().$embedding.key, cosineDistanceTo: queryVector)
+    .limit(10)
+    .all()
+```
+
+### Search with distance returned
+
+SELECTs the distance as a computed column and returns `(Model, Double)` tuples.
+
+```swift
+let results = try await Chunk.query(on: db)
+    .filter(\.$source == "example.com")
+    .allWithDistance(Chunk().$embedding.key, to: queryVector, limit: 10)
+// results: [(PageChunk, Double)]
 ```
 
 ## Running Tests

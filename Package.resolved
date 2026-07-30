@@ -1,5 +1,5 @@
 {
-  "originHash" : "83d0fae4f2ac55338beb401ba46ad80f560912e652c9d87bdc000533e5b077e2",
+  "originHash" : "db82c6dc7246a1132033f6db18134785b857dfc0234e2f6279ce0c42c9716e46",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -29,6 +29,15 @@
       }
     },
     {
+      "identity" : "fluent-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/vapor/fluent-kit.git",
+      "state" : {
+        "revision" : "ca609b2132bde05f9a2d7561e2864587c24fa7b9",
+        "version" : "1.57.0"
+      }
+    },
+    {
       "identity" : "multipart-kit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/multipart-kit.git",
@@ -44,6 +53,15 @@
       "state" : {
         "revision" : "1a10ccea61e4248effd23b6e814999ce7bdf0ee0",
         "version" : "4.9.3"
+      }
+    },
+    {
+      "identity" : "sql-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/vapor/sql-kit.git",
+      "state" : {
+        "revision" : "3779cedb44b1f374f2cca261c6d28f206024a582",
+        "version" : "3.36.0"
       }
     },
     {
