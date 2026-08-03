@@ -127,6 +127,24 @@ extension QueryBuilder {
             throw VectorError.unexpectedQueryConversion
         }
 
+        // Add all columns from joined tables so that model.joined(OtherModel.self)
+        // can hydrate them from the raw result row.
+        for join in query.joins {
+            let (schema, alias): (String, String?)
+            switch join {
+            case .join(let s, let a, _, _, _):
+                (schema, alias) = (s, a)
+            case .extendedJoin(let s, _, let a, _, _, _):
+                (schema, alias) = (s, a)
+            case .advancedJoin(let s, _, let a, _, _):
+                (schema, alias) = (s, a)
+            case .custom:
+                continue // skip custom joins — can't infer schema
+            }
+            let tableName = alias ?? schema
+            select.columns.append(SQLColumn(SQLLiteral.all, table: SQLIdentifier(tableName)))
+        }
+
         // Append the distance column: field <=> $vector::vector AS __pgvector_distance
         let fieldName = fieldKey.description
         select.columns.append(

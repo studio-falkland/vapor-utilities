@@ -154,6 +154,194 @@ func testAllWithDistanceEmptyResult() async throws {
     #expect(results?.isEmpty == true)
 }
 
+// MARK: - allWithDistance with Join Tests
+
+final class JoinParentModel: Model, @unchecked Sendable {
+    static let schema = "join_parents"
+    static let space: String? = nil
+    static let alias: String? = nil
+
+    typealias IDValue = UUID
+
+    @ID(key: .id)
+    var id: UUID?
+
+    @Field(key: "name")
+    var name: String
+
+    required init() {}
+}
+
+final class JoinChildModel: Model, @unchecked Sendable {
+    static let schema = "join_children"
+    static let space: String? = nil
+    static let alias: String? = nil
+
+    typealias IDValue = UUID
+
+    @ID(key: .id)
+    var id: UUID?
+
+    @Vector(key: .string("embedding"), dimensions: 128)
+    var embedding: [Double]?
+
+    @Parent(key: "parent_id")
+    var parent: JoinParentModel
+
+    required init() {}
+}
+
+@Test("allWithDistance with join includes joined table.* columns in SQL")
+func testAllWithDistanceJoinIncludesJoinedColumns() async throws {
+    let db = TestDB()
+    let builder = JoinChildModel.query(on: db)
+        .join(JoinParentModel.self, on: \JoinChildModel.$parent.$id == \JoinParentModel.$id)
+        .filter(JoinParentModel.self, \JoinParentModel.$name == "test")
+
+    _ = try? await builder.allWithDistance(
+        JoinChildModel().$embedding.key,
+        to: [0.1, 0.2],
+        limit: 5
+    )
+
+    guard let sql = db.sql else {
+        Issue.record("No SQL was captured")
+        return
+    }
+
+    // Joined table should appear as "table_name.*"
+    #expect(sql.contains(#""join_parents".*"#))
+
+    // Primary model fields should be listed explicitly
+    #expect(sql.contains("join_children"))
+
+    // Distance infrastructure should still be present
+    #expect(sql.contains("__pgvector_distance"))
+    #expect(sql.contains("<=>"))
+    #expect(sql.contains("::vector"))
+    #expect(sql.contains("LIMIT 5"))
+    #expect(sql.contains("ORDER BY"))
+}
+
+// MARK: - Round-trip test helpers
+
+/// A minimal `SQLRow` that stores values keyed by column name.
+struct JoinTestRow: SQLRow, @unchecked Sendable {
+    let data: [String: any Sendable]
+
+    var allColumns: [String] { Array(data.keys) }
+
+    func contains(column: String) -> Bool {
+        data.keys.contains(column)
+    }
+
+    func decodeNil(column: String) throws -> Bool {
+        data[column] == nil
+    }
+
+    func decode<D: Decodable>(column: String, as: D.Type) throws -> D {
+        guard let value = data[column] else {
+            throw DecodingError.keyNotFound(
+                AnyCodingKey(stringValue: column),
+                DecodingError.Context(codingPath: [], debugDescription: "Column '\(column)' not found")
+            )
+        }
+        guard let typed = value as? D else {
+            throw DecodingError.typeMismatch(
+                D.self,
+                DecodingError.Context(codingPath: [], debugDescription: "Expected \(D.self) for column '\(column)', got \(type(of: value))")
+            )
+        }
+        return typed
+    }
+}
+
+struct AnyCodingKey: CodingKey, @unchecked Sendable {
+    var stringValue: String
+    var intValue: Int? { nil }
+
+    init(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { nil }
+}
+
+/// A `TestDB` variant that returns a pre-built row instead of capturing SQL.
+final class TestDBWithRow: Database, SQLDatabase, @unchecked Sendable {
+    let logger = Logger(label: "test")
+    let eventLoop: any EventLoop = NIOAsyncTestingEventLoop()
+    let dialect: any SQLDialect = PostgreSQLStyleDialect()
+    let queryLogLevel: Logger.Level? = nil
+    var context: DatabaseContext
+    var inTransaction: Bool { false }
+
+    let row: any SQLRow
+
+    init(row: any SQLRow) {
+        self.row = row
+        self.context = DatabaseContext(
+            configuration: _Config(),
+            logger: Logger(label: "test"),
+            eventLoop: NIOAsyncTestingEventLoop()
+        )
+    }
+
+    // MARK: SQLDatabase
+
+    func execute(sql query: any SQLExpression, _ onRow: @escaping @Sendable (any SQLRow) -> ()) -> EventLoopFuture<Void> {
+        onRow(self.row)
+        return eventLoop.makeSucceededFuture(())
+    }
+
+    func execute(sql query: any SQLExpression, _ onRow: @escaping @Sendable (any SQLRow) -> ()) async throws {
+        onRow(self.row)
+    }
+
+    // MARK: Database
+
+    func execute(query: DatabaseQuery, onOutput: @escaping @Sendable (any DatabaseOutput) -> ()) -> EventLoopFuture<Void> {
+        eventLoop.makeSucceededFuture(())
+    }
+    func execute(schema: DatabaseSchema) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
+    func execute(enum: DatabaseEnum) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
+    func transaction<T>(_ closure: @escaping @Sendable (any Database) -> EventLoopFuture<T>) -> EventLoopFuture<T> { closure(self) }
+    func withConnection<T>(_ closure: @escaping @Sendable (any Database) -> EventLoopFuture<T>) -> EventLoopFuture<T> { closure(self) }
+}
+
+@Test("allWithDistance with join produces model that can decode joined model")
+func testAllWithDistanceJoinDecodesJoinedModel() async throws {
+    let parentID = UUID()
+    let childID = parentID // same ID since both models share the "id" column name
+
+    let row = JoinTestRow(data: [
+        "id": childID,
+        "embedding": [0.1, 0.2],
+        "parent_id": parentID,
+        "name": "test-parent",
+        "__pgvector_distance": 0.5,
+    ])
+
+    let db = TestDBWithRow(row: row)
+    let builder = JoinChildModel.query(on: db)
+        .join(JoinParentModel.self, on: \JoinChildModel.$parent.$id == \JoinParentModel.$id)
+
+    let results = try await builder.allWithDistance(
+        JoinChildModel().$embedding.key,
+        to: [0.1, 0.2],
+        limit: 5
+    )
+
+    #expect(results.count == 1)
+    let (child, distance) = results[0]
+    #expect(child.id == childID)
+    #expect(distance == 0.5)
+
+    // This is the crucial assertion: the joined model should be decodable
+    // from the same row. Before the fix, this would crash with:
+    // "Cannot access field before it is initialized or fetched: name"
+    let parent = try child.joined(JoinParentModel.self)
+    #expect(parent.id == parentID)
+    #expect(parent.name == "test-parent")
+}
+
 // MARK: - Test Helpers
 
 /// Serialize an `SQLExpression` to a SQL string for test assertions.
