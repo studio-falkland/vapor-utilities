@@ -88,6 +88,64 @@ The `APP_URL` environment variable is read automatically and used as the default
 APP_URL=https://example.com
 ```
 
+## Fluent
+
+Extensions for [Fluent](https://github.com/vapor/fluent-kit) `QueryBuilder`.
+
+### Chunk
+
+Iterate through large result sets in discrete batches without loading everything
+into memory at once. Each chunk is fetched, processed with the closure, then
+discarded before the next chunk is fetched.
+
+```swift
+import VaporUtilities
+
+try await User.query(on: db)
+    .sort(\.$id, .ascending)
+    .chunk(size: 100) { chunk in
+        for user in chunk {
+            // process each user
+        }
+    }
+```
+
+> Tip: Always apply a `sort` before calling `chunk` to ensure consistent
+> ordering across pages. Without a sort, the order is undefined.
+
+### Chunk with cursor
+
+For large datasets, the offset/limit approach above slows down as the offset
+grows. Use the cursor-based overload to avoid this by filtering with `WHERE cursor > ?` instead of `OFFSET`.
+
+The cursor column value type must be `Comparable` (e.g. `Int`, `Date`, `String`, or `UUID`).
+`UUID` conforms to `Comparable` on macOS 14+ / iOS 17+ (this package targets macOS 15).
+
+```swift
+import VaporUtilities
+
+try await User.query(on: db)
+    .filter(\.$status == "active")
+    .chunk(size: 100, cursor: \.$id, order: .ascending) { chunk in
+        for user in chunk {
+            // process each user
+        }
+    }
+```
+
+For models with a `Comparable` ID type (including `UUID` on macOS 14+), use the
+`chunkById` convenience which defaults to the model's ID column:
+
+```swift
+try await User.query(on: db)
+    .filter(\.$status == "active")
+    .chunkById(size: 100) { chunk in
+        for user in chunk {
+            // process each user
+        }
+    }
+```
+
 ## FluentPGVector
 
 Fluent-native pgvector support: a `@Vector` property wrapper and `QueryBuilder` extensions

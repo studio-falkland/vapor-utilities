@@ -22,6 +22,7 @@ let package = Package(
             name: "VaporUtilities",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
+                .product(name: "FluentKit", package: "fluent-kit"),
             ]
         ),
         .target(
