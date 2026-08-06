@@ -146,6 +146,48 @@ try await User.query(on: db)
     }
 ```
 
+### Where Has
+
+Filter a model based on the existence (or absence) of related records matching
+conditions. Works with `@Children`, `@OptionalChild`, `@Parent`, and
+`@OptionalParent` relationships. Generates correlated `EXISTS` / `NOT EXISTS`
+subqueries.
+
+```swift
+import VaporUtilities
+
+// Authors who have published posts
+Author.query(on: db)
+    .whereHas(\.$posts) { post in
+        post.filter(\.$status == "published")
+    }
+
+// Authors who have no published posts
+Author.query(on: db)
+    .whereDoesntHave(\.$posts) { post in
+        post.filter(\.$status == "published")
+    }
+
+// Posts whose author is named "Alice"
+Post.query(on: db)
+    .whereHas(\.$author) { author in
+        author.filter(\.$name == "Alice")
+    }
+
+// Authors with a profile whose bio is "writer"
+Author.query(on: db)
+    .whereHas(\.$profile) { profile in
+        profile.filter(\.$bio == "writer")
+    }
+
+// OR variants combine with existing filters using OR
+Author.query(on: db)
+    .filter(\.$name == "Alice")
+    .orWhereHas(\.$posts) { post in
+        post.filter(\.$status == "published")
+    }
+```
+
 ## FluentPGVector
 
 Fluent-native pgvector support: a `@Vector` property wrapper and `QueryBuilder` extensions
