@@ -23,6 +23,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "FluentKit", package: "fluent-kit"),
+                .product(name: "FluentSQL", package: "fluent-kit"),
+                .product(name: "SQLKit", package: "sql-kit"),
             ]
         ),
         .target(
@@ -35,7 +37,12 @@ let package = Package(
         ),
         .testTarget(
             name: "VaporUtilitiesTests",
-            dependencies: ["VaporUtilities"]
+            dependencies: [
+                "VaporUtilities",
+                .product(name: "XCTFluent", package: "fluent-kit"),
+                .product(name: "NIOEmbedded", package: "swift-nio"),
+                .product(name: "SQLKit", package: "sql-kit"),
+            ]
         ),
         .testTarget(
             name: "FluentPGVectorTests",
