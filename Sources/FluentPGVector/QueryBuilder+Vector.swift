@@ -15,6 +15,38 @@ struct SQLVectorBinding: SQLExpression {
     }
 }
 
+// MARK: - Model decoding output
+
+/// A `DatabaseOutput` that decodes model fields from a schema-qualified output
+/// (so aliased columns like `"page_chunks_id"` are found) but delegates
+/// `schema(_:)` to the unscoped output. This ensures that `cachedOutput`
+/// stores the unscoped output, so `model.joined(OtherModel.self)` can
+/// re-qualify it with the joined model's schema.
+struct ModelDecodingOutput: DatabaseOutput {
+    /// The schema-qualified output used for field lookups.
+    let scoped: any DatabaseOutput
+    /// The unscoped output used for `schema(_:)` delegation.
+    let unscoped: any DatabaseOutput
+
+    var description: String { "ModelDecodingOutput(\(self.scoped.description))" }
+
+    func schema(_ schema: String) -> any DatabaseOutput {
+        self.unscoped.schema(schema)
+    }
+
+    func contains(_ key: FieldKey) -> Bool {
+        self.scoped.contains(key)
+    }
+
+    func decodeNil(_ key: FieldKey) throws -> Bool {
+        try self.scoped.decodeNil(key)
+    }
+
+    func decode<T>(_ key: FieldKey, as type: T.Type) throws -> T where T: Decodable {
+        try self.scoped.decode(key, as: T.self)
+    }
+}
+
 // MARK: - Sort by cosine distance
 
 extension QueryBuilder {
@@ -140,7 +172,12 @@ extension QueryBuilder {
 
         return try outputs.map { output in
             let model = Model()
-            try model.output(from: output.qualifiedSchema(space: Model.spaceIfNotAliased, Model.schemaOrAlias))
+            // Use a wrapper that decodes fields from the schema-qualified output
+            // (so aliased columns like "page_chunks_scraped_page_id" are found),
+            // but delegates schema() to the unscoped output so that
+            // model.joined(OtherModel.self) can re-qualify correctly.
+            let scoped = output.qualifiedSchema(space: Model.spaceIfNotAliased, Model.schemaOrAlias)
+            try model.output(from: ModelDecodingOutput(scoped: scoped, unscoped: output))
             let distance = try output.decode(FieldKey(stringLiteral: "__pgvector_distance"), as: Double.self)
             return (model, distance)
         }
