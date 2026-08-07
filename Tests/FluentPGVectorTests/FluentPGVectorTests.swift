@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @preconcurrency import FluentKit
 @preconcurrency import FluentPGVector
+import FluentSQL
 import SQLKit
 import XCTFluent
 import NIOEmbedded
@@ -264,6 +265,34 @@ struct AnyCodingKey: CodingKey, @unchecked Sendable {
     init?(intValue: Int) { nil }
 }
 
+/// A `DatabaseOutput` that resolves column names with a schema prefix,
+/// matching the aliased columns produced by `SQLQueryConverter`.
+struct TestDatabaseOutput: DatabaseOutput {
+    let sqlRow: any SQLRow
+    let schema: String?
+
+    func schema(_ schema: String) -> any DatabaseOutput {
+        TestDatabaseOutput(sqlRow: self.sqlRow, schema: schema)
+    }
+
+    func contains(_ key: FieldKey) -> Bool {
+        let column = self.schema.map { "\($0)_\(key.description)" } ?? key.description
+        return self.sqlRow.contains(column: column)
+    }
+
+    func decodeNil(_ key: FieldKey) throws -> Bool {
+        let column = self.schema.map { "\($0)_\(key.description)" } ?? key.description
+        return try self.sqlRow.decodeNil(column: column)
+    }
+
+    func decode<T>(_ key: FieldKey, as type: T.Type) throws -> T where T: Decodable {
+        let column = self.schema.map { "\($0)_\(key.description)" } ?? key.description
+        return try self.sqlRow.decode(column: column, as: T.self)
+    }
+
+    var description: String { "TestDatabaseOutput(schema: \(schema ?? "nil"))" }
+}
+
 /// A `TestDB` variant that returns a pre-built row instead of capturing SQL.
 final class TestDBWithRow: Database, SQLDatabase, @unchecked Sendable {
     let logger = Logger(label: "test")
@@ -298,7 +327,8 @@ final class TestDBWithRow: Database, SQLDatabase, @unchecked Sendable {
     // MARK: Database
 
     func execute(query: DatabaseQuery, onOutput: @escaping @Sendable (any DatabaseOutput) -> ()) -> EventLoopFuture<Void> {
-        eventLoop.makeSucceededFuture(())
+        onOutput(TestDatabaseOutput(sqlRow: self.row, schema: nil))
+        return eventLoop.makeSucceededFuture(())
     }
     func execute(schema: DatabaseSchema) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
     func execute(enum: DatabaseEnum) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
@@ -311,11 +341,13 @@ func testAllWithDistanceJoinDecodesJoinedModel() async throws {
     let parentID = UUID()
     let childID = parentID // same ID since both models share the "id" column name
 
+    // Column names use the schema_key format produced by SQLQueryConverter.
     let row = JoinTestRow(data: [
-        "id": childID,
-        "embedding": [0.1, 0.2],
-        "parent_id": parentID,
-        "name": "test-parent",
+        "join_children_id": childID,
+        "join_children_embedding": [0.1, 0.2],
+        "join_children_parent_id": parentID,
+        "join_parents_id": parentID,
+        "join_parents_name": "test-parent",
         "__pgvector_distance": 0.5,
     ])
 
@@ -335,8 +367,8 @@ func testAllWithDistanceJoinDecodesJoinedModel() async throws {
     #expect(distance == 0.5)
 
     // This is the crucial assertion: the joined model should be decodable
-    // from the same row. Before the fix, this would crash with:
-    // "Cannot access field before it is initialized or fetched: name"
+    // from the same row. The schema-prefixed output correctly resolves
+    // "join_parents_id" and "join_parents_name" for the joined model.
     let parent = try child.joined(JoinParentModel.self)
     #expect(parent.id == parentID)
     #expect(parent.name == "test-parent")
@@ -386,7 +418,10 @@ final class TestDB: Database, SQLDatabase, @unchecked Sendable {
     // MARK: Database
 
     func execute(query: DatabaseQuery, onOutput: @escaping @Sendable (any DatabaseOutput) -> ()) -> EventLoopFuture<Void> {
-        eventLoop.makeSucceededFuture(())
+        let converter = SQLQueryConverter(delegate: TestSQLConverterDelegate())
+        let expression = converter.convert(query)
+        self.sql = self.serialize(expression).sql
+        return eventLoop.makeSucceededFuture(())
     }
     func execute(schema: DatabaseSchema) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
     func execute(enum: DatabaseEnum) -> EventLoopFuture<Void> { eventLoop.makeSucceededFuture(()) }
@@ -429,5 +464,12 @@ private struct _Config: DatabaseConfiguration {
             func shutdown() {}
         }
         return D()
+    }
+}
+
+/// A minimal `SQLConverterDelegate` for test SQL serialization.
+private struct TestSQLConverterDelegate: SQLConverterDelegate {
+    func customDataType(_ dataType: DatabaseSchema.DataType) -> (any SQLExpression)? {
+        nil
     }
 }

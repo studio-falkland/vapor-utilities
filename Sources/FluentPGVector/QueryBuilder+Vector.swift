@@ -2,20 +2,6 @@ import FluentKit
 import FluentSQL
 import SQLKit
 
-// MARK: - Error type
-
-/// Errors thrown by the `FluentPGVector` module.
-enum VectorError: Error, CustomStringConvertible {
-    case unexpectedQueryConversion
-
-    var description: String {
-        switch self {
-        case .unexpectedQueryConversion:
-            "FluentPGVector: Expected SQLSelect from query converter for read action."
-        }
-    }
-}
-
 // MARK: - SQL expression for vector bindings
 
 /// A SQL expression that serializes a vector array as a bind parameter
@@ -26,15 +12,6 @@ struct SQLVectorBinding: SQLExpression {
     func serialize(to serializer: inout SQLSerializer) {
         SQLBind(self.values).serialize(to: &serializer)
         serializer.write("::vector")
-    }
-}
-
-// MARK: - SQLQueryConverter delegate
-
-/// A minimal delegate for `SQLQueryConverter` that returns `nil` for custom data types.
-struct VectorSQLConverterDelegate: SQLConverterDelegate {
-    func customDataType(_ dataType: DatabaseSchema.DataType) -> (any SQLExpression)? {
-        nil
     }
 }
 
@@ -82,8 +59,8 @@ extension QueryBuilder {
     /// Performs a semantic search using cosine distance, returning the models sorted by
     /// proximity to the query vector along with their computed distance values.
     ///
-    /// This method uses `SQLKit`'s structured query builder internally. Only the `<=>`
-    /// operator and the `::vector` cast are raw SQL — the rest is structured SQL.
+    /// This method uses the normal Fluent execution pipeline, adding the distance
+    /// computation and ordering as custom fields and sorts on the ``DatabaseQuery``.
     ///
     /// Any filters previously applied to the query builder are preserved.
     ///
@@ -104,9 +81,7 @@ extension QueryBuilder {
         to vector: [Double],
         limit: Int
     ) async throws -> [(Model, Double)] {
-        let sql = self.database as! any SQLDatabase
-
-        // Build a copy of the query with the limit set and ensure fields are populated.
+        // Build a copy of the query with the limit set.
         var query = self.query
         query.action = .read
         query.limits = [.count(limit)]
@@ -118,17 +93,8 @@ extension QueryBuilder {
             }
         }
 
-        // Convert the Fluent query to a structured SQLSelect.
-        let converter = SQLQueryConverter(delegate: VectorSQLConverterDelegate())
-        let expression = converter.convert(query)
-
-        // The converter returns a SQLSelect for read actions.
-        guard var select = expression as? SQLSelect else {
-            throw VectorError.unexpectedQueryConversion
-        }
-
-        // Add all columns from joined tables so that model.joined(OtherModel.self)
-        // can hydrate them from the raw result row.
+        // Add columns from joined tables so that model.joined(OtherModel.self)
+        // can hydrate them from the output.
         for join in query.joins {
             let (schema, alias): (String, String?)
             switch join {
@@ -142,12 +108,12 @@ extension QueryBuilder {
                 continue // skip custom joins — can't infer schema
             }
             let tableName = alias ?? schema
-            select.columns.append(SQLColumn(SQLLiteral.all, table: SQLIdentifier(tableName)))
+            query.fields.append(.custom(SQLColumn(SQLLiteral.all, table: SQLIdentifier(tableName))))
         }
 
         // Append the distance column: field <=> $vector::vector AS __pgvector_distance
         let fieldName = fieldKey.description
-        select.columns.append(
+        query.fields.append(.custom(
             SQLAlias(
                 SQLBinaryExpression(
                     left: SQLColumn(fieldName),
@@ -156,26 +122,26 @@ extension QueryBuilder {
                 ),
                 as: SQLIdentifier("__pgvector_distance")
             )
-        )
+        ))
 
         // Order by the computed distance.
-        select.orderBy.append(
-            SQLOrderBy(
-                expression: SQLIdentifier("__pgvector_distance"),
-                direction: SQLDirection.ascending
-            )
-        )
+        query.sorts.append(.custom(SQLIdentifier("__pgvector_distance")))
 
-        // Execute the query.
-        nonisolated(unsafe) var rows = [any SQLRow]()
-        try await sql.execute(sql: select) { row in
-            rows.append(row)
-        }
+        // Execute through the normal Fluent pipeline, which uses the database
+        // driver's native DatabaseOutput — this handles schema-prefixed column
+        // names correctly, unlike SQLDatabaseOutput.
+        //
+        // We accumulate raw outputs in the non-throwing closure, then decode
+        // them outside where throwing is allowed.
+        nonisolated(unsafe) var outputs = [any DatabaseOutput]()
+        try await self.database.execute(query: query, onOutput: { output in
+            outputs.append(output)
+        })
 
-        // Decode each row as the model plus the distance.
-        return try rows.map { row in
-            let model = try row.decode(fluentModel: Model.self)
-            let distance = try row.decode(column: "__pgvector_distance", as: Double.self)
+        return try outputs.map { output in
+            let model = Model()
+            try model.output(from: output.qualifiedSchema(space: Model.spaceIfNotAliased, Model.schemaOrAlias))
+            let distance = try output.decode(FieldKey(stringLiteral: "__pgvector_distance"), as: Double.self)
             return (model, distance)
         }
     }
