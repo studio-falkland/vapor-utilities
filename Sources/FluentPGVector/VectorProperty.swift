@@ -1,4 +1,5 @@
 import FluentKit
+import Pgvector
 
 extension Fields {
     /// A Fluent property wrapper for pgvector `vector` columns.
@@ -12,6 +13,10 @@ extension Fields {
     ///     var embedding: [Double]?
     /// }
     /// ```
+    ///
+    /// > Important: Before using this property in regular queries (e.g. `Model.query(on: db).all()`),
+    /// > call ``FPGVector/registerVectorTypes(on:)`` once during app startup.
+    /// > ``QueryBuilder/allWithDistance(_:to:limit:)`` handles this automatically.
     public typealias Vector = VectorProperty<Self>
 }
 
@@ -138,7 +143,12 @@ extension VectorProperty: AnyDatabaseProperty {
                 if try output.decodeNil(self.key) {
                     self.outputValue = .some(nil)
                 } else {
-                    self.outputValue = try .some(output.decode(self.key, as: [Double].self))
+                    // Decode using Pgvector.Vector's PostgresDecodable conformance,
+                    // which handles pgvector's binary wire format natively.
+                    // PostgresNIO's built-in [Double] decoding expects the standard
+                    // PostgreSQL array format and cannot decode pgvector's format.
+                    let pgVector = try output.decode(self.key, as: Pgvector.Vector.self)
+                    self.outputValue = .some(pgVector.value.map(Double.init))
                 }
             } catch {
                 throw FluentError.invalidField(
@@ -166,6 +176,18 @@ extension VectorProperty: AnyCodableProperty {
         } else {
             self.value = try container.decode([Double].self)
         }
+    }
+}
+
+// MARK: - Decodable conformance for Pgvector.Vector
+
+/// Required by ``DatabaseOutput.decode(_:as:)`` which requires ``Decodable``.
+/// The ``PostgresDecodable`` fast path in PostgresKit intercepts this at runtime,
+/// so this ``Decodable`` implementation is only used as a last resort (e.g. JSON).
+extension Pgvector.Vector: @retroactive Decodable {
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(try container.decode([Float].self))
     }
 }
 

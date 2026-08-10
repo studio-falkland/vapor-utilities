@@ -1,7 +1,6 @@
 import Testing
 import Foundation
-@preconcurrency import FluentKit
-@preconcurrency import FluentPGVector
+@preconcurrency @testable import FluentPGVector
 import FluentSQL
 import SQLKit
 import XCTFluent
@@ -228,7 +227,7 @@ func testAllWithDistanceJoinIncludesJoinedColumns() async throws {
 
 /// A minimal `SQLRow` that stores values keyed by column name.
 struct JoinTestRow: SQLRow, @unchecked Sendable {
-    let data: [String: any Sendable]
+    let data: [String: Any]
 
     var allColumns: [String] { Array(data.keys) }
 
@@ -305,6 +304,7 @@ final class TestDBWithRow: Database, SQLDatabase, @unchecked Sendable {
     let row: any SQLRow
 
     init(row: any SQLRow) {
+        FPGVector.registerVectorTypesForTesting()
         self.row = row
         self.context = DatabaseContext(
             configuration: _Config(),
@@ -344,7 +344,7 @@ func testAllWithDistanceJoinDecodesJoinedModel() async throws {
     // Column names use the schema_key format produced by SQLQueryConverter.
     let row = JoinTestRow(data: [
         "join_children_id": childID,
-        "join_children_embedding": [0.1, 0.2],
+        "join_children_embedding": TestVector.embedding,
         "join_children_parent_id": parentID,
         "join_parents_id": parentID,
         "join_parents_name": "test-parent",
@@ -397,6 +397,7 @@ final class TestDB: Database, SQLDatabase, @unchecked Sendable {
     private(set) var sql: String?
 
     init() {
+        FPGVector.registerVectorTypesForTesting()
         self.context = DatabaseContext(
             configuration: _Config(),
             logger: Logger(label: "test"),

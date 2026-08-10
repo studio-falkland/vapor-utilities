@@ -235,6 +235,26 @@ let results = try await Chunk.query(on: db)
 // results: [(PageChunk, Double)]
 ```
 
+> [!IMPORTANT]
+> Before using this library, you must install the [pgvector](https://github.com/pgvector/pgvector)
+> extension in your PostgreSQL database:
+>
+> ```sql
+> CREATE EXTENSION vector;
+> ```
+>
+> You must also register the pgvector type OID
+> **once during app startup** before any query that selects a `@Vector` column:
+>
+> ```swift
+> // In configure.swift:
+> try await FPGVector.registerVectorTypes(on: app.db)
+> ```
+>
+> Without this call, decoding a `vector` column crashes with `FluentError.invalidField`.
+> The `allWithDistance(_:to:limit:)` method calls this automatically, but regular
+> `Model.query(on: db).all()` queries do not.
+
 ## Running Tests
 
 ```bash

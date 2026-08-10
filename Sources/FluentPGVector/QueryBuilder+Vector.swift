@@ -159,6 +159,10 @@ extension QueryBuilder {
         // Order by the computed distance.
         query.sorts.append(.custom(SQLIdentifier("__pgvector_distance")))
 
+        // Ensure the pgvector type OID is registered before decoding.
+        // This is a one-time query that caches the result in Vector.psqlType.
+        try await FPGVector.registerVectorTypes(on: self.database)
+
         // Execute through the normal Fluent pipeline, which uses the database
         // driver's native DatabaseOutput — this handles schema-prefixed column
         // names correctly, unlike SQLDatabaseOutput.
