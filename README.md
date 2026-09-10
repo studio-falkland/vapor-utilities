@@ -226,36 +226,6 @@ Author.query(on: db)
     }
 ```
 
-## Path Parameters
-
-Validate dynamic route parameters without the usual nil-check boilerplate.
-The `require` helpers throw `Abort(.badRequest)` by default when a parameter
-is missing or cannot be parsed; the status and reason are customizable on
-all of them.
-
-```swift
-import VaporUtilities
-
-// Raw value
-let userID = try req.parameters.require("userID")
-
-// Typed value — any LosslessStringConvertible type
-let page = try req.parameters.require("page", as: Int.self)
-
-// UUID — UUID does not conform to LosslessStringConvertible, so use this
-let user = try await User.findOrFail(
-    req.parameters.requireUUID("userID"),
-    on: req.db
-)
-
-// Custom status and reason
-let file = try req.parameters.require(
-    "fileID",
-    status: .notFound,
-    reason: "File not found"
-)
-```
-
 ## FluentPGVector
 
 Fluent-native pgvector support: a `@Vector` property wrapper and `QueryBuilder` extensions
