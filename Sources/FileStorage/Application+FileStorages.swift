@@ -44,7 +44,10 @@ extension Application {
         /// Lazily constructed drivers, keyed by identifier. A lock-protected
         /// box is used so drivers can be added without replacing the value in
         /// application storage (which would discard the shutdown hook).
-        private struct DriversKey: StorageKey {
+        ///
+        /// The key also serves as the identity for the application-level lock
+        /// that serializes registry and driver construction (see `require`).
+        private struct DriversKey: StorageKey, LockKey {
             typealias Value = NIOLockedValueBox<[FileStorageID: any FileStorageDriver]>
         }
 
@@ -63,45 +66,57 @@ extension Application {
         /// Returns the driver registered for `id`, constructing it on first
         /// access.
         ///
+        /// Construction is single-flight: the first call to this method builds
+        /// the shared driver, and every concurrent caller — e.g. several queued
+        /// jobs starting at once — waits for it and receives the same instance.
+        /// Without this, racing callers would each construct their own driver;
+        /// for S3 that means multiple `AWSClient`s, and the losers would be
+        /// released without ever being shut down, tripping Soto's `deinit`
+        /// assertion when the worker is under load.
+        ///
         /// - Precondition: A factory must have been registered for `id` via
-        ///   `use(_:as:)` before this is called.
+        ///   `use(_:as:)` before this is called. Factories must not call back
+        ///   into `require`, as the construction lock is not reentrant.
         public func require(_ id: FileStorageID = .default) -> any FileStorageDriver {
-            let box: NIOLockedValueBox<[FileStorageID: any FileStorageDriver]>
-            if let existing = self.application.storage[DriversKey.self] {
-                box = existing
-                if let driver = box.withLockedValue({ $0[id] }) {
-                    return driver
-                }
-            } else {
-                box = NIOLockedValueBox([:])
-                self.application.storage.set(DriversKey.self, to: box) { box in
-                    let drivers = box.withLockedValue { $0 }
-                    for driver in drivers.values {
-                        do {
-                            try Self.waitForShutdown(of: driver)
-                        } catch {
-                            // Vapor logs shutdown failures with the
-                            // application logger.
+            self.application.locks.lock(for: DriversKey.self).withLock {
+                let box: NIOLockedValueBox<[FileStorageID: any FileStorageDriver]>
+                if let existing = self.application.storage[DriversKey.self] {
+                    box = existing
+                } else {
+                    box = NIOLockedValueBox([:])
+                    self.application.storage.set(DriversKey.self, to: box) { box in
+                        let drivers = box.withLockedValue { $0 }
+                        for driver in drivers.values {
+                            do {
+                                try Self.waitForShutdown(of: driver)
+                            } catch {
+                                // Vapor logs shutdown failures with the
+                                // application logger.
+                            }
                         }
                     }
                 }
-            }
 
-            guard let factory = (self.application.storage[FactoriesKey.self] ?? [:])[id] else {
-                fatalError(
-                    "FileStorage '\(id.string)' not configured. "
-                        + "Use `app.fileStorages.use(...)` before accessing `req.fileStorage`."
-                )
-            }
+                if let driver = box.withLockedValue({ $0[id] }) {
+                    return driver
+                }
 
-            let driver: any FileStorageDriver
-            do {
-                driver = try factory.make(self.application)
-            } catch {
-                fatalError("Failed to construct FileStorage driver '\(id.string)': \(error)")
+                guard let factory = (self.application.storage[FactoriesKey.self] ?? [:])[id] else {
+                    fatalError(
+                        "FileStorage '\(id.string)' not configured. "
+                            + "Use `app.fileStorages.use(...)` before accessing `req.fileStorage`."
+                    )
+                }
+
+                let driver: any FileStorageDriver
+                do {
+                    driver = try factory.make(self.application)
+                } catch {
+                    fatalError("Failed to construct FileStorage driver '\(id.string)': \(error)")
+                }
+                box.withLockedValue { $0[id] = driver }
+                return driver
             }
-            box.withLockedValue { $0[id] = driver }
-            return driver
         }
 
         /// Runs an async driver shutdown to completion from a synchronous

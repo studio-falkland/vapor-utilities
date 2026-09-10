@@ -65,6 +65,24 @@ private func makeRequest(_ app: Application) -> Request {
     Request(application: app, method: .GET, url: URI(path: "/"), on: app.eventLoopGroup.next())
 }
 
+/// Thread-safe counter used to count factory invocations from concurrent tasks.
+private final class StubFactoryCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() {
+        self.lock.lock()
+        self.count += 1
+        self.lock.unlock()
+    }
+
+    var value: Int {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.count
+    }
+}
+
 // MARK: - Registry
 
 @Test("use registers the default driver and require returns it", .timeLimit(.minutes(2)))
@@ -133,6 +151,38 @@ func registryDriversShutDown() async throws {
     try await app.asyncShutdown()
     let count = await stub.shutdownCount
     #expect(count == 1)
+}
+
+@Test("concurrent first access builds exactly one shared driver", .timeLimit(.minutes(2)))
+func registryConcurrentFirstAccessBuildsOnce() async throws {
+    try await withApp { app in
+        let counter = StubFactoryCounter()
+        let stub = StubDriver()
+        app.fileStorages.use(.init { _ in
+            counter.increment()
+            return stub
+        })
+
+        let required: [any FileStorageDriver] = await withTaskGroup(
+            of: (any FileStorageDriver).self,
+            returning: [any FileStorageDriver].self
+        ) { group in
+            for _ in 0..<32 {
+                group.addTask { app.fileStorages.require() }
+            }
+            var drivers: [any FileStorageDriver] = []
+            for await driver in group {
+                drivers.append(driver)
+            }
+            return drivers
+        }
+
+        #expect(counter.value == 1)
+        #expect(required.count == 32)
+        for driver in required {
+            #expect(driver as? StubDriver === stub)
+        }
+    }
 }
 
 // MARK: - Façade
