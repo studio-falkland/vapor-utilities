@@ -146,6 +146,44 @@ try await User.query(on: db)
     }
 ```
 
+### First or Fail
+
+Fetch the first model matching a query, or throw an `Abort` when none is found.
+By default this throws `Abort(.notFound)` with a reason of `"<schema> not found"`;
+the status and reason can be customized.
+
+```swift
+import VaporUtilities
+
+// Throws Abort(.notFound, reason: "users not found") when no user matches
+let user = try await User.query(on: db)
+    .filter(\.$email == email)
+    .firstOrFail()
+
+// Custom status and reason
+let admin = try await User.query(on: db)
+    .filter(\.$role == "admin")
+    .firstOrFail(status: .notFound, reason: "No admin user exists")
+```
+
+For fetching a single model by ID, use `findOrFail`, which works like
+`Model.find(_:on:)` but throws `Abort(.notFound)` when the model does not exist:
+
+```swift
+import VaporUtilities
+
+// Throws Abort(.notFound, reason: "users not found") when no user has this ID
+let user = try await User.findOrFail(req.parameters.get("userID"), on: req.db)
+
+// Custom status and reason
+let user = try await User.findOrFail(
+    req.parameters.get("userID"),
+    on: req.db,
+    status: .notFound,
+    reason: "No user with that identifier exists"
+)
+```
+
 ### Where Has
 
 Filter a model based on the existence (or absence) of related records matching
