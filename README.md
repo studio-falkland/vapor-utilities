@@ -323,6 +323,124 @@ let results = try await Chunk.query(on: db)
 > The `allWithDistance(_:to:limit:)` method calls this automatically, but regular
 > `Model.query(on: db).all()` queries do not.
 
+## FileStorage
+
+S3 file storage for Vapor with a friendly, driver-agnostic API. Upload,
+download, stream, sign URLs, and delete objects in Amazon S3 or any
+S3-compatible provider (Cloudflare R2, MinIO, DigitalOcean Spaces, …).
+
+Add the product to your target:
+
+```swift
+.target(name: "App", dependencies: [
+    .product(name: "FileStorage", package: "vapor-utilities"),
+]),
+```
+
+### Configuration
+
+Register the S3 driver in `configure.swift`. Credentials are provided
+explicitly — the driver never reads environment variables itself:
+
+```swift
+import FileStorage
+
+app.fileStorages.use(.s3(.init(
+    bucket: Environment.get("S3_BUCKET") ?? "",
+    region: Environment.get("S3_REGION").map(Region.init(rawValue:)) ?? .eucentral1,
+    accessKeyId: Environment.get("S3_ACCESS_KEY_ID") ?? "",
+    secretAccessKey: Environment.get("S3_SECRET_ACCESS_KEY") ?? "",
+    endpoint: Environment.get("S3_ENDPOINT").flatMap(URL.init(string:))
+)))
+```
+
+For S3-compatible providers, set `region` to the provider's region name
+(Cloudflare R2 uses `Region.other("auto")`) and `endpoint` to its URL:
+
+```swift
+app.fileStorages.use(.s3(.init(
+    bucket: "my-bucket",
+    region: .other("auto"),
+    accessKeyId: Environment.get("S3_ACCESS_KEY_ID") ?? "",
+    secretAccessKey: Environment.get("S3_SECRET_ACCESS_KEY") ?? "",
+    endpoint: URL(string: "https://<account-id>.r2.cloudflarestorage.com")
+)))
+```
+
+### Usage
+
+```swift
+import FileStorage
+
+// Upload from request content
+let key = "avatars/\(user.id).png"
+try await req.fileStorage.upload(data: req.body.data, key: key, contentType: "image/png")
+
+// Upload a multipart file part
+let file = try req.content.decode(File.self)
+try await req.fileStorage.upload(file: file, key: "docs/report.pdf")
+
+// Download into memory
+let data = try await req.fileStorage.get(key: key)
+
+// Stream a file back to the client
+return try await req.fileStorage.stream(key: "videos/intro.mp4")
+
+// Presigned URL for a download, overriding the stored response headers
+let url = try await req.fileStorage.presignedURL(
+    key: "reports/june.pdf",
+    method: .get,
+    expiresIn: .hours(1),
+    parameters: [
+        "response-content-type": "application/pdf",
+        "response-content-disposition": "attachment; filename=\"june.pdf\""
+    ]
+)
+
+// Presigned URL for a direct client upload (signed headers must match)
+let url = try await req.fileStorage.presignedURL(
+    key: "drafts/\(id).json",
+    method: .put,
+    expiresIn: .minutes(15),
+    headers: ["Content-Type": "application/json"]
+)
+
+// Metadata and deletion
+let metadata = try await req.fileStorage.metadata(key: key)
+try await req.fileStorage.delete(key: key)
+```
+
+### Errors
+
+Common failures map to named cases:
+
+```swift
+do {
+    try await req.fileStorage.get(key: key)
+} catch StorageError.notFound {
+    throw Abort(.notFound)
+} catch StorageError.accessDenied {
+    throw Abort(.forbidden)
+} catch {
+    throw Abort(.internalServerError)
+}
+```
+
+Everything else is wrapped as `StorageError.failure` with the backend status,
+error code, message, and request ID when available.
+
+### Multiple drivers
+
+`FileStorage` is driver-agnostic. Register additional drivers under named
+identifiers and select them per request:
+
+```swift
+app.fileStorages.use(.s3(.init(/* … */)), as: .init(string: "uploads"))
+app.fileStorages.use(.s3(.init(/* … */)), as: .init(string: "archives"))
+
+let url = try await req.fileStorage(.init(string: "archives")).presignedURL(key: key, method: .get, expiresIn: .hours(1))
+```
+
 ## Running Tests
 
 ```bash
