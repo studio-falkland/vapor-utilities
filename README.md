@@ -226,6 +226,123 @@ Author.query(on: db)
     }
 ```
 
+## Mass assignment
+
+`FillableDTO` turns a request body into model values. The DTO knows exactly which
+keys were sent, applies exactly those to the model, runs validation, and saves:
+
+- `{"note": null}` clears the column; `{}` changes nothing. Absent keys never
+touch their columns.
+- No per-field assignment code — `fill`/`update` handle the present keys,
+validation, and saving.
+- Creating new records works the same way: only the keys you set are written,
+the rest fall back to their database defaults.
+
+### 1. Declare your DTO
+
+Subclass `FillableDTO` and declare one `@FillableField` per column you want to
+write, pointing at the model property:
+
+```swift
+import VaporUtilities
+
+final class UserPatch: FillableDTO<User> {
+    @FillableField(\User.$name) var name: String??      // required column
+    @FillableField(\User.$email) var email: String??    // nullable column
+}
+```
+
+Every field is `V??` — the wire type wrapped in "present or not". Whether `null`
+is allowed depends on the column, not the DTO: nullable columns accept it, required
+columns reject it with a 400.
+
+| Wire | Meaning |
+| --- | --- |
+| key absent | column left untouched |
+| `"field": null` | write `NULL` (nullable columns) — 400 on required ones |
+| `"field": "value"` | write the value |
+
+### 2. Use it in your handler
+
+```swift
+let patch = try req.content.decode(UserPatch.self)
+let user = try await User.findOrFail(req.parameters.get("userID"), on: req.db)
+
+// One go — validate, apply, save:
+try await user.update(patch, on: req.db)
+
+// Or stage first, save later (e.g. inside a transaction with more work):
+try user.fill(patch)
+// … inspect/do other things …
+try await user.save(on: req.db)
+```
+
+Only the keys that were actually sent end up in the `UPDATE` — absent fields
+never touch their columns — and the model's identifier can never be
+mass-assigned. Calling `update` on a fresh model creates it instead.
+
+### 3. Validate
+
+Override `validate()` and check the fields that are present. The double
+`if let` peels the "present" layer first, then the value:
+
+```swift
+final class UserPatch: FillableDTO<User> {
+    @FillableField(\User.$name) var name: String??
+
+    override func validate() throws {
+        if let present = name, let name = present {
+            try Validator.count(3...).validate(name)
+        }
+    }
+}
+```
+
+### 4. Add parsing, relations and database checks
+
+Three opt-in extras cover the fields that aren't a straight copy:
+
+- **`converting:`** — turn the wire value into the column type, e.g. a `String` timestamp into a `Date`:
+
+```swift
+final class UserPatch: FillableDTO<User> {
+    @FillableField(\User.$joinedAt, converting: UserPatch.parseDate)
+    var joinedAt: String??
+
+    private static let iso = ISO8601DateFormatter()
+
+    static func parseDate(_ string: String) throws -> Date {
+        guard let date = iso.date(from: string) else {
+            throw Abort(.badRequest, reason: "Invalid date '\(string)'.")
+        }
+        return date
+    }
+}
+```
+
+- **`guarded: true`** — the DTO decodes and validates the field, but doesn't
+auto-apply it; you assign it yourself where it belongs (usually relations):
+
+```swift
+final class UserPatch: FillableDTO<User> {
+    @FillableField(\User.$name) var name: String??
+    @FillableField(\User.$employerID, guarded: true) var employerID: UUID??
+
+    override func willApply(to user: User, on database: any Database) async throws {
+        if case .some(.some(let employerID)) = employerID {
+            guard try await Employer.find(employerID, on: database) != nil else {
+                throw Abort(.badRequest, reason: "Unknown employer '\(employerID)'.")
+            }
+        }
+        try user.set(employerID, to: \.$employerID)  // keeps absent/null semantics
+    }
+}
+```
+
+- **`willApply(to:on:)`** — an async hook with the database, running between
+validation and save. This is where uniqueness checks, existence checks, and
+relation resolution live.
+
 ## FluentPGVector
 
 Fluent-native pgvector support: a `@Vector` property wrapper and `QueryBuilder` extensions
