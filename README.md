@@ -226,6 +226,36 @@ Author.query(on: db)
     }
 ```
 
+### Filtered eager loading
+
+`with(_:)` eagerly loads an entire relationship. When you only need a subset of the
+related records, this overload lets you filter the eager-load query before it runs,
+instead of loading everything and discarding rows in memory. The fetch is still a
+single batched query (no N+1): the constraint becomes part of that one query.
+
+```swift
+import VaporUtilities
+
+// Each author, with only posts created in the last hour
+let authors = try await Author.query(on: db)
+    .with(\.$posts) { posts in
+        posts.filter(\.$createdAt >= Date().addingTimeInterval(-3600))
+    }
+    .all()
+```
+
+A relationship that ends up with no matching rows loads as empty (`nil` for
+optional to-one relations). Plain `.with`, `.with(_:withDeleted:)`, and this
+filtered form can be combined on the same query.
+
+A few limits:
+
+- A `@Parent` whose related row is filtered out stays unloaded. Its `wrappedValue`
+  force-unwraps, so read it through the projected/safe accessors when the row may
+  be absent.
+- Filtering a nested relationship (a `.with` inside another `.with`) isn't
+  supported.
+
 ## Mass assignment
 
 `FillableDTO` turns a request body into model values. The DTO knows exactly which
