@@ -256,6 +256,26 @@ A few limits:
 - Filtering a nested relationship (a `.with` inside another `.with`) isn't
   supported.
 
+### Rename field
+
+Rename a column in a migration.
+
+```swift
+import VaporUtilities
+
+struct RenameUserFullName: AsyncMigration {
+    func prepare(on database: any Database) async throws {
+        try await database.renameField("name", to: "full_name", on: "users")
+    }
+
+    func revert(on database: any Database) async throws {
+        try await database.renameField("full_name", to: "name", on: "users")
+    }
+}
+```
+
+Supports PostgreSQL, MySQL 8.0+, and SQLite 3.25+.
+
 ## Mass assignment
 
 `FillableDTO` turns a request body into model values. The DTO knows exactly which
