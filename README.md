@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.0+-F05138?logo=swift&logoColor=white" alt="Swift 6.0+"></a>
+  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.4+-F05138?logo=swift&logoColor=white" alt="Swift 6.4+"></a>
   <a href="https://swift.org/package-manager"><img src="https://img.shields.io/badge/SPM-compatible-4BC51D?logo=swift&logoColor=white" alt="SPM Compatible"></a>
-  <a href="https://github.com/vapor/vapor"><img src="https://img.shields.io/badge/Vapor-4-6DBEEB?logo=vapor&logoColor=white" alt="Vapor 4"></a>
+  <a href="https://github.com/vapor/vapor"><img src="https://img.shields.io/badge/Vapor-5-6DBEEB?logo=vapor&logoColor=white" alt="Vapor 5"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-EUPL--1.2-blue.svg" alt="License: EUPL-1.2"></a>
 </p>
 
@@ -17,8 +17,8 @@ Add the package to your Vapor project's `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/vapor/vapor.git", from: "4.121.4"),
-    .package(url: "https://github.com/studio-falkland/vapor-utilities.git", from: "1.0.0"),
+    .package(url: "https://github.com/vapor/vapor.git", from: "5.0.0-beta.4"),
+    .package(url: "https://github.com/studio-falkland/vapor-utilities.git", branch: "vapor5"),
 ],
 ```
 
@@ -64,7 +64,7 @@ Build absolute URLs from the current request or application configuration.
 import VaporUtilities
 
 // The full request URL
-request.absoluteURL                             // "https://example.com/users?page=1"
+request.absoluteURL()                           // "https://example.com/users?page=1"
 
 // Build a URL relative to the request
 request.url(for: "/login", query: ["r": "/"])   // "https://example.com/login?r=%2F"
@@ -75,17 +75,19 @@ app.url(for: "/health")                          // "https://example.com/health"
 
 ### Configuration
 
-Set `app.url.baseURL` to override the automatic scheme/host detection. This is
-useful for production deployments behind a reverse proxy.
-
-```swift
-app.url.baseURL = URL(string: "https://example.com")
-```
-
-The `APP_URL` environment variable is read automatically and used as the default.
+The base URL is read from the application's configuration under `app.url`,
+which the environment variables provider maps from `APP_URL`. This is useful
+for production deployments behind a reverse proxy.
 
 ```env
 APP_URL=https://example.com
+```
+
+For direct TLS deployments without a proxy, pass the origin explicitly:
+
+```swift
+request.absoluteURL(baseURL: URL(string: "https://example.com"))
+app.url(for: "/health", baseURL: URL(string: "https://example.com"))
 ```
 
 ## Fluent
@@ -173,12 +175,12 @@ For fetching a single model by ID, use `findOrFail`, which works like
 import VaporUtilities
 
 // Throws Abort(.notFound, reason: "users not found") when no user has this ID
-let user = try await User.findOrFail(req.parameters.get("userID"), on: req.db)
+let user = try await User.findOrFail(req.parameters.get("userID"), on: database)
 
 // Custom status and reason
 let user = try await User.findOrFail(
     req.parameters.get("userID"),
-    on: req.db,
+    on: database,
     status: .notFound,
     reason: "No user with that identifier exists"
 )
@@ -315,16 +317,16 @@ columns reject it with a 400.
 ### 2. Use it in your handler
 
 ```swift
-let patch = try req.content.decode(UserPatch.self)
-let user = try await User.findOrFail(req.parameters.get("userID"), on: req.db)
+let patch = try await req.content.decode(UserPatch.self)
+let user = try await User.findOrFail(req.parameters.get("userID"), on: database)
 
 // One go — validate, apply, save:
-try await user.update(patch, on: req.db)
+try await user.update(patch, on: database)
 
 // Or stage first, save later (e.g. inside a transaction with more work):
 try user.fill(patch)
 // … inspect/do other things …
-try await user.save(on: req.db)
+try await user.save(on: database)
 ```
 
 Only the keys that were actually sent end up in the `UPDATE` — absent fields
@@ -453,7 +455,7 @@ let results = try await Chunk.query(on: db)
 >
 > ```swift
 > // In configure.swift:
-> try await FPGVector.registerVectorTypes(on: app.db)
+> try await FPGVector.registerVectorTypes(on: databases.database(...))
 > ```
 >
 > Without this call, decoding a `vector` column crashes with `FluentError.invalidField`.
@@ -476,30 +478,36 @@ Add the product to your target:
 
 ### Configuration
 
-Register the S3 driver in `configure.swift`. Credentials are provided
+Create a `FileStorages` registry in `configure.swift`, register the S3 driver,
+and let the application manage its lifecycle. Credentials are provided
 explicitly — the driver never reads environment variables itself:
 
 ```swift
 import FileStorage
 
-app.fileStorages.use(.s3(.init(
-    bucket: Environment.get("S3_BUCKET") ?? "",
-    region: Environment.get("S3_REGION").map(Region.init(rawValue:)) ?? .eucentral1,
-    accessKeyId: Environment.get("S3_ACCESS_KEY_ID") ?? "",
-    secretAccessKey: Environment.get("S3_SECRET_ACCESS_KEY") ?? "",
-    endpoint: Environment.get("S3_ENDPOINT").flatMap(URL.init(string:))
+let fileStorages = FileStorages()
+let config = app.configReader
+fileStorages.use(.s3(.init(
+    bucket: config.string(forKey: "s3.bucket") ?? "",
+    region: config.string(forKey: "s3.region").map(Region.init(rawValue:)) ?? .eucentral1,
+    accessKeyId: config.string(forKey: "s3.accessKeyId") ?? "",
+    secretAccessKey: config.string(forKey: "s3.secretAccessKey") ?? "",
+    endpoint: config.string(forKey: "s3.endpoint").flatMap(URL.init(string:))
 )))
+app.addService(fileStorages)
 ```
+
+Pass `fileStorages` to the controllers that need it.
 
 For S3-compatible providers, set `region` to the provider's region name
 (Cloudflare R2 uses `Region.other("auto")`) and `endpoint` to its URL:
 
 ```swift
-app.fileStorages.use(.s3(.init(
+fileStorages.use(.s3(.init(
     bucket: "my-bucket",
     region: .other("auto"),
-    accessKeyId: Environment.get("S3_ACCESS_KEY_ID") ?? "",
-    secretAccessKey: Environment.get("S3_SECRET_ACCESS_KEY") ?? "",
+    accessKeyId: config.string(forKey: "s3.accessKeyId") ?? "",
+    secretAccessKey: config.string(forKey: "s3.secretAccessKey") ?? "",
     endpoint: URL(string: "https://<account-id>.r2.cloudflarestorage.com")
 )))
 ```
@@ -509,25 +517,27 @@ app.fileStorages.use(.s3(.init(
 ```swift
 import FileStorage
 
+let storage = fileStorages.storage()
+
 // Upload from request content
 let key = "avatars/\(user.id).png"
-try await req.fileStorage.upload(data: req.body.data, key: key, contentType: "image/png")
+try await storage.upload(data: try await req.body.data() ?? Data(), key: key, contentType: "image/png")
 
 // Upload a multipart file part
-let file = try req.content.decode(File.self)
-try await req.fileStorage.upload(file: file, key: "docs/report.pdf")
+let file = try await req.content.decode(File.self)
+try await storage.upload(file: file, key: "docs/report.pdf")
 
 // Download into memory
-let data = try await req.fileStorage.get(key: key)
+let data = try await storage.get(key: key)
 
 // Stream a file back to the client
-return try await req.fileStorage.stream(key: "videos/intro.mp4")
+return try await storage.stream(key: "videos/intro.mp4")
 
 // Presigned URL for a download, overriding the stored response headers
-let url = try await req.fileStorage.presignedURL(
+let url = try await storage.presignedURL(
     key: "reports/june.pdf",
     method: .get,
-    expiresIn: .hours(1),
+    expiresIn: .seconds(3600),
     parameters: [
         "response-content-type": "application/pdf",
         "response-content-disposition": "attachment; filename=\"june.pdf\""
@@ -535,16 +545,18 @@ let url = try await req.fileStorage.presignedURL(
 )
 
 // Presigned URL for a direct client upload (signed headers must match)
-let url = try await req.fileStorage.presignedURL(
+var headers = HTTPFields()
+headers[.contentType] = "application/json"
+let url = try await storage.presignedURL(
     key: "drafts/\(id).json",
     method: .put,
-    expiresIn: .minutes(15),
-    headers: ["Content-Type": "application/json"]
+    expiresIn: .seconds(900),
+    headers: headers
 )
 
 // Metadata and deletion
-let metadata = try await req.fileStorage.metadata(key: key)
-try await req.fileStorage.delete(key: key)
+let metadata = try await storage.metadata(key: key)
+try await storage.delete(key: key)
 ```
 
 ### Errors
@@ -553,7 +565,7 @@ Common failures map to named cases:
 
 ```swift
 do {
-    try await req.fileStorage.get(key: key)
+    try await storage.get(key: key)
 } catch StorageError.notFound {
     throw Abort(.notFound)
 } catch StorageError.accessDenied {
@@ -572,10 +584,10 @@ error code, message, and request ID when available.
 identifiers and select them per request:
 
 ```swift
-app.fileStorages.use(.s3(.init(/* … */)), as: .init(string: "uploads"))
-app.fileStorages.use(.s3(.init(/* … */)), as: .init(string: "archives"))
+fileStorages.use(.s3(.init(/* … */)), as: .init(string: "uploads"))
+fileStorages.use(.s3(.init(/* … */)), as: .init(string: "archives"))
 
-let url = try await req.fileStorage(.init(string: "archives")).presignedURL(key: key, method: .get, expiresIn: .hours(1))
+let url = try await fileStorages.storage(.init(string: "archives")).presignedURL(key: key, method: .get, expiresIn: .seconds(3600))
 ```
 
 ## Running Tests
