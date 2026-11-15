@@ -90,19 +90,10 @@ extension Request {
     /// - Parameter value: The authority, e.g. `example.com:8080` or `[::1]:8080`.
     /// - Returns: The host and port, with `nil` when no port is present.
     private static func splitHostPort(_ value: String) -> (host: String, port: Int?) {
-        // IPv6 literals are bracketed, e.g. "[::1]:8080".
-        if value.hasPrefix("[") {
-            guard let close = value.firstIndex(of: "]") else { return (value, nil) }
-            let host = String(value[value.index(after: value.startIndex)..<close])
-            let rest = value[value.index(after: close)...]
-            let port = rest.hasPrefix(":") ? Int(rest.dropFirst()) : nil
-            return (host, port)
+        // Foundation parses the authority, including bracketed IPv6 literals.
+        guard let components = URLComponents(string: "http://\(value)") else {
+            return (value, nil)
         }
-
-        // Otherwise split on the last colon.
-        guard let colon = value.lastIndex(of: ":") else { return (value, nil) }
-        let host = String(value[..<colon])
-        let port = Int(value[value.index(after: colon)...])
-        return (host, port)
+        return (components.host ?? value, components.port)
     }
 }
