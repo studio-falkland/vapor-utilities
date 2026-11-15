@@ -1,10 +1,10 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.4
 import PackageDescription
 
 let package = Package(
     name: "vapor-utilities",
     platforms: [
-        .macOS(.v15),
+        .macOS("26.2"),
     ],
     products: [
         .library(name: "VaporUtilities", targets: ["VaporUtilities"]),
@@ -12,10 +12,14 @@ let package = Package(
         .library(name: "FileStorage", targets: ["FileStorage"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.121.4"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "5.0.0-beta.4"),
         .package(url: "https://github.com/vapor/fluent-kit.git", from: "1.57.0"),
         .package(url: "https://github.com/vapor/sql-kit.git", from: "3.36.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.81.0"),
+        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.7.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.14.0"),
+        .package(url: "https://github.com/apple/swift-configuration.git", from: "1.2.2"),
+        .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.6.3"),
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
         .package(url: "https://github.com/pgvector/pgvector-swift.git", from: "0.1.0"),
         .package(url: "https://github.com/soto-project/soto.git", from: "7.0.0"),
@@ -28,6 +32,9 @@ let package = Package(
                 .product(name: "FluentKit", package: "fluent-kit"),
                 .product(name: "FluentSQL", package: "fluent-kit"),
                 .product(name: "SQLKit", package: "sql-kit"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "Configuration", package: "swift-configuration"),
             ]
         ),
         .target(
@@ -47,6 +54,10 @@ let package = Package(
                 .product(name: "XCTFluent", package: "fluent-kit"),
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "SQLKit", package: "sql-kit"),
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Configuration", package: "swift-configuration"),
             ]
         ),
         .target(
@@ -55,8 +66,12 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "SotoS3", package: "soto"),
                 .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             ]
         ),
         .testTarget(
@@ -64,6 +79,8 @@ let package = Package(
             dependencies: [
                 "FileStorage",
                 .product(name: "Vapor", package: "vapor"),
+                .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "SotoS3", package: "soto"),
             ]
         ),

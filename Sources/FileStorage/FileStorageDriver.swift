@@ -1,5 +1,5 @@
 import Foundation
-import NIOCore
+import HTTPTypes
 import Vapor
 
 /// The HTTP method a presigned URL authorizes.
@@ -22,15 +22,15 @@ public struct FileStream: Sendable {
     /// The size of the object in bytes, when known up front.
     public var contentLength: Int?
 
-    /// The object's bytes.
-    public var body: AsyncThrowingStream<ByteBuffer, Error>
+    /// The object's bytes, as a Vapor response body.
+    public var body: Response.Body
 
     /// Creates a new file stream.
     public init(
         contentType: String? = nil,
         contentDisposition: String? = nil,
         contentLength: Int? = nil,
-        body: AsyncThrowingStream<ByteBuffer, Error>
+        body: Response.Body
     ) {
         self.contentType = contentType
         self.contentDisposition = contentDisposition
@@ -43,8 +43,8 @@ public struct FileStream: Sendable {
 ///
 /// Conform to this protocol to add support for additional storage backends
 /// (e.g. Google Cloud Storage, Azure Blob Storage, or local disk). Register a
-/// backend with `app.fileStorages.use(...)` and access it from routes via
-/// `req.fileStorage`.
+/// backend with `fileStorages.use(...)` and access it via
+/// `fileStorages.storage()`.
 public protocol FileStorageDriver: Sendable {
     /// Uploads raw bytes under the given key.
     func upload(data: Data, key: String, contentType: String?, disposition: String?, metadata: [String: String]) async throws
@@ -69,7 +69,7 @@ public protocol FileStorageDriver: Sendable {
     ///     `response-content-type`, `response-content-disposition`).
     ///   - headers: Headers that must be sent with the request when using the
     ///     URL. They are signed and must match exactly.
-    func presignedURL(key: String, method: PresignMethod, expiresIn: TimeAmount, parameters: [String: String], headers: HTTPHeaders) async throws -> URL
+    func presignedURL(key: String, method: PresignMethod, expiresIn: Duration, parameters: [String: String], headers: HTTPFields) async throws -> URL
 
     /// Returns metadata for the object at `key`.
     func metadata(key: String) async throws -> FileMetadata

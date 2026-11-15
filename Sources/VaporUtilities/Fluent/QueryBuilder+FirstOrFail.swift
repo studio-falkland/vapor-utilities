@@ -1,4 +1,5 @@
 import FluentKit
+import HTTPTypes
 import Vapor
 
 extension QueryBuilder {
@@ -30,7 +31,7 @@ extension QueryBuilder {
     /// - Throws: An `Abort` error with the given `status` and `reason` when no model
     ///   matches the query.
     public func firstOrFail(
-        status: HTTPResponseStatus = .notFound,
+        status: HTTPResponse.Status = .notFound,
         reason: String? = nil
     ) async throws -> Model {
         guard let model = try await self.first() else {

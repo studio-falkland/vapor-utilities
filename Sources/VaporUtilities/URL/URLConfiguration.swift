@@ -1,21 +1,14 @@
-import Vapor
+import Configuration
 import Foundation
+import Vapor
 
 /// Configuration for URL generation in a Vapor application.
 ///
-/// Set `app.url.baseURL` to a full URL (scheme + host + optional port) to
-/// override the automatic detection from server configuration. This is useful
-/// for production deployments behind a reverse proxy where the server's
-/// bind address differs from the public URL.
+/// The base URL is read from the application's `ConfigReader` under the
+/// `app.url` key, which the environment variables provider maps from
+/// `APP_URL`. This is useful for production deployments behind a reverse
+/// proxy where the server's bind address differs from the public URL.
 ///
-/// The `APP_URL` environment variable (from `.env` or the process environment)
-/// is read automatically and used as the default value.
-///
-/// ```swift
-/// app.url.baseURL = URL(string: "https://example.com")
-/// ```
-///
-/// Or in `.env`:
 /// ```env
 /// APP_URL=https://example.com
 /// ```
@@ -32,9 +25,8 @@ public struct URLConfiguration: Sendable {
 
     /// Creates a new URL configuration.
     ///
-    /// - Parameter baseURL: The base URL to use for URL generation. Defaults
-    ///   to the `APP_URL` environment variable if present.
-    public init(baseURL: URL? = Environment.get("APP_URL").flatMap(URL.init(string:))) {
+    /// - Parameter baseURL: The base URL to use for URL generation.
+    public init(baseURL: URL? = nil) {
         self.baseURL = baseURL
     }
 }
@@ -42,23 +34,15 @@ public struct URLConfiguration: Sendable {
 extension Application {
     /// The URL configuration for this application.
     ///
-    /// ```swift
-    /// // Configure in configure.swift
-    /// app.url.baseURL = URL(string: "https://example.com")
+    /// Reads `app.url` from the application's configuration. The environment
+    /// variables provider maps `APP_URL` to that key.
     ///
-    /// // Uses APP_URL from .env by default
-    /// print(app.url.configuration.baseURL)
+    /// ```env
+    /// APP_URL=https://example.com
     /// ```
     public var url: URLConfiguration {
-        get {
-            self.storage[URLConfigurationKey.self] ?? .init()
-        }
-        set {
-            self.storage[URLConfigurationKey.self] = newValue
-        }
-    }
-
-    private struct URLConfigurationKey: StorageKey {
-        typealias Value = URLConfiguration
+        URLConfiguration(
+            baseURL: self.configReader.string(forKey: "app.url").flatMap(URL.init(string:))
+        )
     }
 }

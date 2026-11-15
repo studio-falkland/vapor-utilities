@@ -1,19 +1,20 @@
+import Logging
 import Vapor
 
-/// Constructs and configures a ``FileStorageDriver`` for a Vapor application.
+/// Constructs and configures a ``FileStorageDriver``.
 ///
-/// Factories are registered with `app.fileStorages.use(...)` and are only
-/// invoked the first time a driver is requested. This allows factories to
-/// access application resources such as the shared HTTP client.
+/// Factories are registered with `fileStorages.use(...)` and are only invoked
+/// the first time a driver is requested. This lets a factory use the
+/// application logger without requiring an `Application` reference.
 public struct FileStorageConfigurationFactory: Sendable {
-    /// Creates and returns a configured driver for the given application.
-    let make: @Sendable (Application) throws -> any FileStorageDriver
+    /// Creates and returns a configured driver.
+    let make: @Sendable (Logger) throws -> any FileStorageDriver
 
     /// Creates a new factory.
     ///
     /// - Parameter make: A closure that constructs the driver. It is called at
     ///   most once per application, on first access.
-    public init(make: @escaping @Sendable (Application) throws -> any FileStorageDriver) {
+    public init(make: @escaping @Sendable (Logger) throws -> any FileStorageDriver) {
         self.make = make
     }
 }

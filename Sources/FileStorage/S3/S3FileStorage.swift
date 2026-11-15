@@ -1,6 +1,8 @@
 import Foundation
+import HTTPTypes
 import NIOCore
 import NIOFoundationCompat
+import NIOHTTP1
 import SotoS3
 import Vapor
 
@@ -9,7 +11,7 @@ import Vapor
 /// Register it in `configure.swift`:
 ///
 /// ```swift
-/// app.fileStorages.use(.s3(.init(
+/// fileStorages.use(.s3(.init(
 ///     bucket: "acme-uploads",
 ///     region: .euCentral1,
 ///     accessKeyId: Environment.get("S3_ACCESS_KEY_ID") ?? "",
@@ -80,23 +82,37 @@ public struct S3FileStorage: FileStorageDriver {
         do {
             let response = try await self.s3.getObject(bucket: self.bucket, key: key)
             let body = response.body
+            let contentLength = response.contentLength.flatMap(Int.init)
+
+            // Stream Soto's body into a Vapor response body.
+            let stream: Response.Body
+            if let contentLength {
+                stream = try Response.Body(stream: { writer in
+                    do {
+                        for try await buffer in body {
+                            try await writer.write(buffer.readableBytesView)
+                        }
+                    } catch {
+                        throw Self.mapError(error, key: key)
+                    }
+                }, count: contentLength)
+            } else {
+                stream = Response.Body(stream: { writer in
+                    do {
+                        for try await buffer in body {
+                            try await writer.write(buffer.readableBytesView)
+                        }
+                    } catch {
+                        throw Self.mapError(error, key: key)
+                    }
+                })
+            }
+
             return FileStream(
                 contentType: response.contentType,
                 contentDisposition: response.contentDisposition,
-                contentLength: response.contentLength.flatMap(Int.init),
-                body: AsyncThrowingStream { continuation in
-                    let task = Task {
-                        do {
-                            for try await buffer in body {
-                                continuation.yield(buffer)
-                            }
-                            continuation.finish()
-                        } catch {
-                            continuation.finish(throwing: Self.mapError(error, key: key))
-                        }
-                    }
-                    continuation.onTermination = { _ in task.cancel() }
-                }
+                contentLength: contentLength,
+                body: stream
             )
         } catch {
             throw Self.mapError(error, key: key)
@@ -108,9 +124,9 @@ public struct S3FileStorage: FileStorageDriver {
     public func presignedURL(
         key: String,
         method: PresignMethod,
-        expiresIn: TimeAmount,
+        expiresIn: Duration,
         parameters: [String: String],
-        headers: HTTPHeaders
+        headers: HTTPFields
     ) async throws -> URL {
         guard var components = URLComponents(url: self.objectURL(key: key), resolvingAgainstBaseURL: false) else {
             throw StorageError.invalidRequest(reason: "Unable to build object URL for key '\(key)'")
@@ -123,12 +139,19 @@ public struct S3FileStorage: FileStorageDriver {
         guard let url = components.url else {
             throw StorageError.invalidRequest(reason: "Unable to build object URL for key '\(key)'")
         }
+
+        // Convert the HTTP fields to NIO headers for Soto's signer.
+        var nioHeaders = HTTPHeaders()
+        for field in headers {
+            nioHeaders.add(name: field.name.rawName, value: field.value)
+        }
+
         do {
             return try await self.s3.signURL(
                 url: url,
                 httpMethod: method == .get ? .GET : .PUT,
-                headers: headers,
-                expires: expiresIn
+                headers: nioHeaders,
+                expires: TimeAmount(expiresIn)
             )
         } catch {
             throw Self.mapError(error, key: key)
@@ -236,17 +259,16 @@ public struct S3FileStorage: FileStorageDriver {
 extension FileStorageConfigurationFactory {
     /// Creates an S3-backed file storage driver from the given configuration.
     ///
-    /// The driver reuses the application's shared `AsyncHTTPClient`, so no
-    /// separate connection pool is created.
+    /// The driver uses Soto's shared `HTTPClient`, so no separate connection
+    /// pool is created.
     public static func s3(_ configuration: S3Configuration) -> FileStorageConfigurationFactory {
-        .init { application in
+        .init { logger in
             let client = AWSClient(
                 credentialProvider: .static(
                     accessKeyId: configuration.accessKeyId,
                     secretAccessKey: configuration.secretAccessKey
                 ),
-                httpClient: application.http.client.shared,
-                logger: application.logger
+                logger: logger
             )
             let s3 = S3(
                 client: client,

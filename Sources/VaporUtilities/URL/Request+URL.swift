@@ -1,42 +1,65 @@
-import Vapor
 import Foundation
+import HTTPTypes
+import Vapor
 
 extension Request {
-    /// The absolute URL of the current request, constructed from the scheme,
-    /// host, and path.
+    /// The `Host` field name.
     ///
-    /// The scheme is determined from the server's TLS configuration. The host
-    /// is read from the `Host` header. When `app.url.baseURL` is configured,
-    /// it takes precedence over automatic detection.
+    /// `HTTPField.Name.host` is unavailable in swift-http-types, so the
+    /// canonical name is constructed directly.
+    private static let hostFieldName = HTTPField.Name("Host")!
+
+    /// The absolute URL of the current request.
+    ///
+    /// The origin is resolved from the `Forwarded` header (or its
+    /// `X-Forwarded-*` equivalents), then the `Host` header, then the local
+    /// address. Pass `baseURL` to override the detected origin, which is
+    /// useful for direct TLS deployments where no proxy supplies the scheme.
     ///
     /// ```swift
     /// // GET https://example.com/users?page=1
-    /// print(request.absoluteURL) // "https://example.com/users?page=1"
+    /// print(request.absoluteURL()) // "https://example.com/users?page=1"
     /// ```
-    public var absoluteURL: URL {
-        let scheme = self.application.http.server.configuration.tlsConfiguration != nil ? "https" : "http"
-
-        let host = self.headers.first(name: "Host")
-            ?? self.application.http.server.configuration.hostname
-
-        let fullHost = host.contains(":") ? host
-            : self.port.map { "\(host):\($0)" } ?? host
-
-        guard var components = URLComponents(string: "\(scheme)://\(fullHost)") else {
-            return URL(string: "/")!
+    ///
+    /// - Parameter baseURL: An optional origin override.
+    /// - Returns: The absolute URL of the request.
+    public func absoluteURL(baseURL: URL? = nil) -> URL {
+        // Use the configured base URL when provided.
+        if let baseURL {
+            var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: true)
+            components?.path = self.url.path.isEmpty ? "/" : self.url.path
+            components?.query = self.url.query
+            return components?.url ?? baseURL
         }
 
+        // Prefer the forwarded origin, then the Host header, then the local address.
+        let forwarded = self.headers.forwarded.first
+        let scheme = forwarded?.proto ?? "http"
+
+        let host: String
+        let port: Int?
+        if let authority = forwarded?.host ?? self.headers[Self.hostFieldName] {
+            (host, port) = Self.splitHostPort(authority)
+        } else {
+            host = self.localAddress?.host ?? "localhost"
+            port = self.localAddress?.port
+        }
+
+        // Build the origin + path, keeping the request's query.
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.port = port
         components.path = self.url.path.isEmpty ? "/" : self.url.path
         components.query = self.url.query
-
         return components.url ?? URL(string: "/")!
     }
 
     /// Constructs a URL relative to the current request's base.
     ///
-    /// The returned URL uses the request's scheme and host, with the given
-    /// path and optional query parameters. When `app.url.baseURL` is
-    /// configured, it takes precedence over automatic detection.
+    /// The returned URL uses the request's origin, with the given path and
+    /// optional query parameters. Pass `baseURL` to override the detected
+    /// origin.
     ///
     /// ```swift
     /// // GET https://example.com/users
@@ -47,49 +70,39 @@ extension Request {
     /// - Parameters:
     ///   - path: The path component (e.g. `"/login"`).
     ///   - query: Optional query parameters to append.
+    ///   - baseURL: An optional origin override.
     /// - Returns: An absolute URL, or `nil` if the path is invalid.
-    public func url(for path: String, query: [String: String] = [:]) -> URL? {
-        if let baseURL = self.application.url.baseURL {
-            return Self._buildURL(base: baseURL, path: path, query: query)
-        }
-
-        let scheme = self.application.http.server.configuration.tlsConfiguration != nil ? "https" : "http"
-
-        let host = self.headers.first(name: "Host")
-            ?? self.application.http.server.configuration.hostname
-
-        let fullHost = host.contains(":") ? host
-            : (self.port.map { "\(host):\($0)" } ?? host)
-
-        guard var components = URLComponents(string: "\(scheme)://\(fullHost)") else {
+    public func url(for path: String, query: [String: String] = [:], baseURL: URL? = nil) -> URL? {
+        let origin = self.absoluteURL(baseURL: baseURL)
+        guard var components = URLComponents(url: origin, resolvingAgainstBaseURL: true) else {
             return nil
         }
 
         components.path = path.hasPrefix("/") ? path : "/\(path)"
-
-        if !query.isEmpty {
-            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
-
+        components.queryItems = query.isEmpty
+            ? nil
+            : query.map { URLQueryItem(name: $0.key, value: $0.value) }
         return components.url
     }
 
-    /// The port the request was received on, determined from the `Host` header.
-    private var port: Int? {
-        guard let hostHeader = self.headers.first(name: "Host"),
-              let colonIndex = hostHeader.lastIndex(of: ":") else {
-            return nil
+    /// Splits an authority into its host and optional port.
+    ///
+    /// - Parameter value: The authority, e.g. `example.com:8080` or `[::1]:8080`.
+    /// - Returns: The host and port, with `nil` when no port is present.
+    private static func splitHostPort(_ value: String) -> (host: String, port: Int?) {
+        // IPv6 literals are bracketed, e.g. "[::1]:8080".
+        if value.hasPrefix("[") {
+            guard let close = value.firstIndex(of: "]") else { return (value, nil) }
+            let host = String(value[value.index(after: value.startIndex)..<close])
+            let rest = value[value.index(after: close)...]
+            let port = rest.hasPrefix(":") ? Int(rest.dropFirst()) : nil
+            return (host, port)
         }
-        return Int(hostHeader[hostHeader.index(after: colonIndex)...])
-    }
 
-    /// Build a URL from a base URL, path, and query parameters.
-    private static func _buildURL(base: URL, path: String, query: [String: String]) -> URL? {
-        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: true) else { return nil }
-        components.path = path.hasPrefix("/") ? path : "/\(path)"
-        if !query.isEmpty {
-            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
-        return components.url
+        // Otherwise split on the last colon.
+        guard let colon = value.lastIndex(of: ":") else { return (value, nil) }
+        let host = String(value[..<colon])
+        let port = Int(value[value.index(after: colon)...])
+        return (host, port)
     }
 }

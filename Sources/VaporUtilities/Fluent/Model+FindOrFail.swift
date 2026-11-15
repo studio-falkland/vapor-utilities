@@ -1,4 +1,5 @@
 import FluentKit
+import HTTPTypes
 import Vapor
 
 extension FluentKit.Model {
@@ -30,7 +31,7 @@ extension FluentKit.Model {
     public static func findOrFail(
         _ id: Self.IDValue?,
         on database: any Database,
-        status: HTTPResponseStatus = .notFound,
+        status: HTTPResponse.Status = .notFound,
         reason: String? = nil
     ) async throws -> Self {
         guard let model = try await Self.find(id, on: database) else {

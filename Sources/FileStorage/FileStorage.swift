@@ -1,33 +1,13 @@
 import Foundation
-import NIOCore
+import HTTPTypes
 import Vapor
-
-extension Request {
-    /// The default file storage driver.
-    ///
-    /// ```swift
-    /// let data = try await req.fileStorage.get(key: "avatars/\(user.id).png")
-    /// ```
-    public var fileStorage: FileStorage {
-        self.fileStorage(.default)
-    }
-
-    /// The file storage driver registered under the given identifier.
-    ///
-    /// ```swift
-    /// try await req.fileStorage(.init(string: "archives")).get(key: "backup.tar.gz")
-    /// ```
-    public func fileStorage(_ id: FileStorageID) -> FileStorage {
-        .init(driver: self.application.fileStorages.require(id))
-    }
-}
 
 /// A friendly, driver-agnostic interface for storing and retrieving files.
 ///
-/// Obtain an instance from a request:
+/// Obtain an instance from the registry:
 ///
 /// ```swift
-/// let storage = req.fileStorage
+/// let storage = fileStorages.storage()
 ///
 /// try await storage.upload(data: data, key: "photos/\(id).jpg", contentType: "image/jpeg")
 /// let signed = try await storage.presignedURL(key: "photos/\(id).jpg", method: .get, expiresIn: .hours(1))
@@ -95,28 +75,12 @@ public struct FileStorage: Sendable {
     /// and content length when the backend reports them.
     public func stream(key: String) async throws -> Response {
         let stream = try await self.driver.stream(key: key)
-        let response = Response(
-            status: .ok,
-            headers: [:],
-            body: .init(managedAsyncStream: { writer in
-                do {
-                    for try await buffer in stream.body {
-                        try await writer.write(.buffer(buffer))
-                    }
-                    try await writer.write(.end)
-                } catch {
-                    try await writer.write(.error(error))
-                }
-            })
-        )
+        var response = Response(status: .ok, headers: [:], body: stream.body)
         if let contentType = stream.contentType {
-            response.headers.replaceOrAdd(name: .contentType, value: contentType)
+            response.headers[.contentType] = contentType
         }
         if let contentDisposition = stream.contentDisposition {
-            response.headers.replaceOrAdd(name: "Content-Disposition", value: contentDisposition)
-        }
-        if let contentLength = stream.contentLength {
-            response.headers.replaceOrAdd(name: .contentLength, value: String(contentLength))
+            response.headers[.contentDisposition] = contentDisposition
         }
         return response
     }
@@ -133,33 +97,12 @@ public struct FileStorage: Sendable {
     ///   - headers: Headers that must be sent with the request when using the
     ///     URL. They are signed and must match exactly (most commonly needed
     ///     for uploads, e.g. `Content-Type`).
-    ///
-    /// ```swift
-    /// // Download URL that overrides the stored content type and disposition
-    /// let url = try await req.fileStorage.presignedURL(
-    ///     key: "reports/june.pdf",
-    ///     method: .get,
-    ///     expiresIn: .hours(1),
-    ///     parameters: [
-    ///         "response-content-type": "application/pdf",
-    ///         "response-content-disposition": "attachment; filename=\"june.pdf\""
-    ///     ]
-    /// )
-    ///
-    /// // Upload URL that requires a matching Content-Type header
-    /// let url = try await req.fileStorage.presignedURL(
-    ///     key: "drafts/\(id).json",
-    ///     method: .put,
-    ///     expiresIn: .minutes(15),
-    ///     headers: ["Content-Type": "application/json"]
-    /// )
-    /// ```
     public func presignedURL(
         key: String,
         method: PresignMethod,
-        expiresIn: TimeAmount,
+        expiresIn: Duration,
         parameters: [String: String] = [:],
-        headers: HTTPHeaders = [:]
+        headers: HTTPFields = [:]
     ) async throws -> URL {
         try await self.driver.presignedURL(
             key: key,
@@ -178,5 +121,15 @@ public struct FileStorage: Sendable {
     /// Deletes the object at `key`.
     public func delete(key: String) async throws {
         try await self.driver.delete(key: key)
+    }
+}
+
+extension FileStorages {
+    /// Returns a ``FileStorage`` facade for the driver registered under `id`.
+    ///
+    /// - Parameter id: The identifier of the driver to use.
+    /// - Returns: A facade backed by the driver.
+    public func storage(_ id: FileStorageID = .default) -> FileStorage {
+        FileStorage(driver: self.require(id))
     }
 }

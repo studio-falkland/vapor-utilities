@@ -1,4 +1,5 @@
 import Foundation
+import HTTPTypes
 import Testing
 import Vapor
 import SotoS3
@@ -6,36 +7,40 @@ import SotoS3
 
 // MARK: - Helpers
 
-private func withApp(_ body: (Application) async throws -> Void) async throws {
-    let app = try await Application.make(.testing)
-    try await body(app)
-    try await app.asyncShutdown()
-}
-
-private func s3App(_ app: Application, endpoint: URL? = nil, region: Region = .eucentral1) {
-    app.fileStorages.use(.s3(.init(
+/// Runs a test against an S3-backed registry, then shuts the drivers down.
+private func withS3Storages<T>(
+    endpoint: URL? = nil,
+    region: Region = .eucentral1,
+    _ body: (FileStorage) async throws -> T
+) async throws -> T {
+    let fileStorages = FileStorages()
+    fileStorages.use(.s3(.init(
         bucket: "acme-uploads",
         region: region,
         accessKeyId: "AKIAACCESSKEY",
         secretAccessKey: "secret-key-value",
         endpoint: endpoint
     )))
-}
 
-private func makeRequest(_ app: Application) -> Request {
-    Request(application: app, method: .GET, url: URI(path: "/"), on: app.eventLoopGroup.next())
+    do {
+        let result = try await body(fileStorages.storage())
+        await fileStorages.shutdown()
+        return result
+    } catch {
+        await fileStorages.shutdown()
+        throw error
+    }
 }
 
 // MARK: - Presigned URLs
 
 @Test("presigned GET URL uses virtual-hosted AWS addressing", .timeLimit(.minutes(2)))
 func presignedGETAWSAddressing() async throws {
-    try await withApp { app in
-        s3App(app)
-        let url = try await makeRequest(app).fileStorage.presignedURL(
+    try await withS3Storages { storage in
+        let url = try await storage.presignedURL(
             key: "reports/june.pdf",
             method: .get,
-            expiresIn: .minutes(15)
+            expiresIn: .seconds(900)
         )
         #expect(url.scheme == "https")
         #expect(url.host == "acme-uploads.s3.eu-central-1.amazonaws.com")
@@ -46,12 +51,11 @@ func presignedGETAWSAddressing() async throws {
 
 @Test("presigned URL signs custom response parameters", .timeLimit(.minutes(2)))
 func presignedCustomParameters() async throws {
-    try await withApp { app in
-        s3App(app)
-        let url = try await makeRequest(app).fileStorage.presignedURL(
+    try await withS3Storages { storage in
+        let url = try await storage.presignedURL(
             key: "reports/june.pdf",
             method: .get,
-            expiresIn: .minutes(15),
+            expiresIn: .seconds(900),
             parameters: [
                 "response-content-type": "application/pdf",
                 "response-content-disposition": "attachment; filename=\"june.pdf\"",
@@ -71,13 +75,15 @@ func presignedCustomParameters() async throws {
 
 @Test("presigned PUT URL signs supplied headers", .timeLimit(.minutes(2)))
 func presignedPUTSignedHeaders() async throws {
-    try await withApp { app in
-        s3App(app)
-        let url = try await makeRequest(app).fileStorage.presignedURL(
+    try await withS3Storages { storage in
+        var headers = HTTPFields()
+        headers[.contentType] = "application/json"
+
+        let url = try await storage.presignedURL(
             key: "drafts/\(UUID()).json",
             method: .put,
-            expiresIn: .minutes(15),
-            headers: ["Content-Type": "application/json"]
+            expiresIn: .seconds(900),
+            headers: headers
         )
         let query = url.query ?? ""
         #expect(query.contains("X-Amz-Signature="))
@@ -88,12 +94,14 @@ func presignedPUTSignedHeaders() async throws {
 
 @Test("presigned URL uses path-style addressing with a custom endpoint", .timeLimit(.minutes(2)))
 func presignedCustomEndpoint() async throws {
-    try await withApp { app in
-        s3App(app, endpoint: URL(string: "https://acctid.r2.cloudflarestorage.com"), region: .other("auto"))
-        let url = try await makeRequest(app).fileStorage.presignedURL(
+    try await withS3Storages(
+        endpoint: URL(string: "https://acctid.r2.cloudflarestorage.com"),
+        region: .other("auto")
+    ) { storage in
+        let url = try await storage.presignedURL(
             key: "photos/avatar.png",
             method: .get,
-            expiresIn: .hours(1)
+            expiresIn: .seconds(3600)
         )
         #expect(url.host == "acctid.r2.cloudflarestorage.com")
         #expect(url.path == "/acme-uploads/photos/avatar.png")

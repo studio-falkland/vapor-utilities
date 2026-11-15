@@ -1,12 +1,13 @@
-import Vapor
 import Foundation
+import Vapor
 
 extension Application {
     /// Constructs a URL using the application's configured host and scheme.
     ///
-    /// When `app.url.baseURL` is configured, that value is used as the base.
-    /// Otherwise the scheme is determined from the server's TLS configuration
-    /// and the host is read from the server configuration.
+    /// When `baseURL` is provided, or `app.url.baseURL` is configured, that
+    /// value is used as the base. Otherwise the scheme is determined from the
+    /// server's TLS configuration and the host is read from the server
+    /// configuration.
     ///
     /// ```swift
     /// let url = app.url(for: "/health", query: ["token": "abc"])
@@ -16,14 +17,16 @@ extension Application {
     /// - Parameters:
     ///   - path: The path component (e.g. `"/health"`).
     ///   - query: Optional query parameters to append.
+    ///   - baseURL: An optional origin override. When provided, it takes
+    ///     precedence over `app.url.baseURL`.
     /// - Returns: An absolute URL, or `nil` if the configuration is incomplete.
-    public func url(for path: String, query: [String: String] = [:]) -> URL? {
-        if let baseURL = self.url.baseURL {
+    public func url(for path: String, query: [String: String] = [:], baseURL: URL? = nil) -> URL? {
+        if let baseURL = baseURL ?? self.url.baseURL {
             return Self._buildURL(base: baseURL, path: path, query: query)
         }
 
-        let scheme = self.http.server.configuration.tlsConfiguration != nil ? "https" : "http"
-        let host = self.http.server.configuration.hostname
+        let scheme = self.serverConfiguration.isTLSEnabled ? "https" : "http"
+        let host = self.serverConfiguration.hostname ?? "localhost"
 
         guard var components = URLComponents(string: "\(scheme)://\(host)") else {
             return nil
