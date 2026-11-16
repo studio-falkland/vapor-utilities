@@ -90,6 +90,113 @@ request.absoluteURL(baseURL: URL(string: "https://example.com"))
 app.url(for: "/health", baseURL: URL(string: "https://example.com"))
 ```
 
+## LexoRank
+
+Order records by a sortable string instead of an integer position, so moving one
+row rewrites one row.
+
+```swift
+import VaporUtilities
+
+final class Card: Model {
+    static let schema = "cards"
+
+    @ID(key: .id) var id: UUID?
+    @Parent(key: "list_id") var list: List
+    @Field(key: "rank") var rank: LexoRank
+}
+```
+
+Ranks are base-36 strings that compare as plain text, so `sort(\.$rank)` is all
+you need:
+
+```swift
+let cards = try await Card.query(on: db).sort(\.$rank).all()
+```
+
+### Migration
+
+Store the rank in a text column with a binary collation. Locale-aware collations
+can sort digits after letters and corrupt the order.
+
+```swift
+try await database.schema("cards")
+    .id()
+    .field("list_id", .uuid, .required, .references("lists", "id"))
+    .field("rank", .string, .required)
+    .unique(on: "list_id", "rank")
+    .create()
+```
+
+```sql
+-- PostgreSQL: pin the collation explicitly
+ALTER TABLE cards ALTER COLUMN rank TYPE text COLLATE "C";
+```
+
+SQLite's default `BINARY` collation is already correct; MySQL needs
+`utf8mb4_bin`.
+
+### Creating and moving
+
+```swift
+// The first row in a list
+card.rank = .middle
+
+// Between two neighbours
+card.rank = try LexoRank.between(previous.rank, next.rank)
+
+// Before the first or after the last row
+card.rank = try LexoRank.between(nil, first.rank)
+card.rank = try LexoRank.between(last.rank, nil)
+```
+
+`between` returns the shortest rank that fits the gap, so repeated insertions
+stay compact. It throws `LexoRankError.noRankAvailable` when the bounds are
+adjacent — for example `"a"` and `"a0"`, where `"a0"` is the immediate successor
+of `"a"`.
+
+### Query helpers
+
+```swift
+// Append to the end of a list
+card.rank = try await Card.query(on: db)
+    .filter(\.$list.$id == listID)
+    .nextLexoRank(\.$rank)
+
+// The highest rank in a list
+let last = try await Card.query(on: db)
+    .filter(\.$list.$id == listID)
+    .lastLexoRank(\.$rank)
+```
+
+Both helpers read before they compute, so two concurrent appends can produce the
+same rank. Add a unique index on the rank column and retry, or serialise the
+writes.
+
+### Rebalancing
+
+When a gap runs out, spread the whole list again. Rows keep their order and only
+rows whose rank changed are saved.
+
+```swift
+try await db.transaction { db in
+    try await Card.query(on: db)
+        .filter(\.$list.$id == listID)
+        .rebalanceLexoRanks(\.$rank)
+}
+```
+
+Ranks are only meaningful inside one ordered set, so rebalance a complete sibling
+set — every row that shares the same parent — never a page or a filtered subset
+of it.
+
+The value type works without Fluent too:
+
+```swift
+let ranks = try ["a", "a0", "a00"].map { LexoRank($0)! }.rebalanced()
+// ["9001", "i002", "r003"]
+```
+
 ## Fluent
 
 Extensions for [Fluent](https://github.com/vapor/fluent-kit) `QueryBuilder`.
