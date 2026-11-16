@@ -155,6 +155,22 @@ stay compact. It throws `LexoRankError.noRankAvailable` when the bounds are
 adjacent — for example `"a"` and `"a0"`, where `"a0"` is the immediate successor
 of `"a"`.
 
+### Validation
+
+```swift
+struct CardPatch: Content, Validatable {
+    var rank: String
+
+    static func validations(_ validations: inout Validations) {
+        validations.add("rank", as: String.self, is: .lexoRank)
+    }
+}
+```
+
+The validator accepts the same input as `LexoRank(_:)`, including uppercase, which
+parsing folds to lowercase. Store the parsed rank rather than the raw string —
+uppercase sorts before lowercase and would corrupt the order.
+
 ### Query helpers
 
 ```swift
