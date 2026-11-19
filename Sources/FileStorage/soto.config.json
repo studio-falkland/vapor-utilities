@@ -1,0 +1,7 @@
+{
+    "services": {
+        "s3": {
+            "operations": ["putObject", "getObject", "headObject", "deleteObject"]
+        }
+    }
+}

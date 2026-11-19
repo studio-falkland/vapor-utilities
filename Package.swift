@@ -22,7 +22,9 @@ let package = Package(
         .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.6.3"),
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
         .package(url: "https://github.com/pgvector/pgvector-swift.git", from: "0.1.0"),
-        .package(url: "https://github.com/soto-project/soto.git", from: "7.0.0"),
+        // 7.10.x emits `sdkId`, which requires an unreleased soto-core.
+        .package(url: "https://github.com/soto-project/soto-codegenerator", "7.9.6"..<"7.10.0"),
+        .package(url: "https://github.com/soto-project/soto-core.git", from: "7.13.0"),
     ],
     targets: [
         .target(
@@ -64,7 +66,7 @@ let package = Package(
             name: "FileStorage",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
-                .product(name: "SotoS3", package: "soto"),
+                .product(name: "SotoCore", package: "soto-core"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
@@ -72,6 +74,9 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            ],
+            plugins: [
+                .plugin(name: "SotoCodeGeneratorPlugin", package: "soto-codegenerator"),
             ]
         ),
         .testTarget(
@@ -81,7 +86,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "VaporTesting", package: "vapor"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "SotoS3", package: "soto"),
+                .product(name: "SotoCore", package: "soto-core"),
             ]
         ),
         .testTarget(

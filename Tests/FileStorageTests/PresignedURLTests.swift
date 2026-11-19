@@ -2,7 +2,7 @@ import Foundation
 import HTTPTypes
 import Testing
 import Vapor
-import SotoS3
+import SotoCore
 @testable import FileStorage
 
 // MARK: - Helpers

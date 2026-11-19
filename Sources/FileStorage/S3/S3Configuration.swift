@@ -1,5 +1,5 @@
 import Foundation
-import SotoS3
+import SotoCore
 
 /// Configuration for the Amazon S3 file storage driver.
 ///

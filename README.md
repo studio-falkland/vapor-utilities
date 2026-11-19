@@ -713,6 +713,14 @@ fileStorages.use(.s3(.init(/* … */)), as: .init(string: "archives"))
 let url = try await fileStorages.storage(.init(string: "archives")).presignedURL(key: key, method: .get, expiresIn: .seconds(3600))
 ```
 
+### S3 code generation
+
+The S3 client is generated at build time from the Smithy model in
+`Sources/FileStorage/aws-models/` by the `SotoCodeGeneratorPlugin`, configured
+via `Sources/FileStorage/soto.config.json`. To refresh the model, run
+`swift package plugin download-aws-models` and trim `endpoints.json` to the
+`s3` service entries.
+
 ## Running Tests
 
 ```bash

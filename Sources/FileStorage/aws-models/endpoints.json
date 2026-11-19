@@ -1,0 +1,1222 @@
+{
+  "version": 3,
+  "partitions": [
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "amazonaws.com",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.aws",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack",
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.aws",
+            "hostname": "{service}.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "amazonaws.com",
+      "partition": "aws",
+      "partitionName": "AWS Standard",
+      "regionRegex": "^(us|eu|ap|sa|ca|me|af|il|mx)\\-\\w+\\-\\d+$",
+      "regions": {
+        "af-south-1": {
+          "description": "Africa (Cape Town)"
+        },
+        "ap-east-1": {
+          "description": "Asia Pacific (Hong Kong)"
+        },
+        "ap-east-2": {
+          "description": "Asia Pacific (Taipei)"
+        },
+        "ap-northeast-1": {
+          "description": "Asia Pacific (Tokyo)"
+        },
+        "ap-northeast-2": {
+          "description": "Asia Pacific (Seoul)"
+        },
+        "ap-northeast-3": {
+          "description": "Asia Pacific (Osaka)"
+        },
+        "ap-south-1": {
+          "description": "Asia Pacific (Mumbai)"
+        },
+        "ap-south-2": {
+          "description": "Asia Pacific (Hyderabad)"
+        },
+        "ap-southeast-1": {
+          "description": "Asia Pacific (Singapore)"
+        },
+        "ap-southeast-2": {
+          "description": "Asia Pacific (Sydney)"
+        },
+        "ap-southeast-3": {
+          "description": "Asia Pacific (Jakarta)"
+        },
+        "ap-southeast-4": {
+          "description": "Asia Pacific (Melbourne)"
+        },
+        "ap-southeast-5": {
+          "description": "Asia Pacific (Malaysia)"
+        },
+        "ap-southeast-6": {
+          "description": "Asia Pacific (New Zealand)"
+        },
+        "ap-southeast-7": {
+          "description": "Asia Pacific (Thailand)"
+        },
+        "ca-central-1": {
+          "description": "Canada (Central)"
+        },
+        "ca-west-1": {
+          "description": "Canada West (Calgary)"
+        },
+        "eu-central-1": {
+          "description": "Europe (Frankfurt)"
+        },
+        "eu-central-2": {
+          "description": "Europe (Zurich)"
+        },
+        "eu-north-1": {
+          "description": "Europe (Stockholm)"
+        },
+        "eu-south-1": {
+          "description": "Europe (Milan)"
+        },
+        "eu-south-2": {
+          "description": "Europe (Spain)"
+        },
+        "eu-west-1": {
+          "description": "Europe (Ireland)"
+        },
+        "eu-west-2": {
+          "description": "Europe (London)"
+        },
+        "eu-west-3": {
+          "description": "Europe (Paris)"
+        },
+        "il-central-1": {
+          "description": "Israel (Tel Aviv)"
+        },
+        "me-central-1": {
+          "description": "Middle East (UAE)"
+        },
+        "me-south-1": {
+          "description": "Middle East (Bahrain)"
+        },
+        "mx-central-1": {
+          "description": "Mexico (Central)"
+        },
+        "sa-east-1": {
+          "description": "South America (Sao Paulo)"
+        },
+        "us-east-1": {
+          "description": "US East (N. Virginia)"
+        },
+        "us-east-2": {
+          "description": "US East (Ohio)"
+        },
+        "us-west-1": {
+          "description": "US West (N. California)"
+        },
+        "us-west-2": {
+          "description": "US West (Oregon)"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "protocols": [
+              "http",
+              "https"
+            ],
+            "signatureVersions": [
+              "s3v4"
+            ],
+            "variants": [
+              {
+                "dnsSuffix": "amazonaws.com",
+                "hostname": "{service}-fips.dualstack.{region}.{dnsSuffix}",
+                "tags": [
+                  "dualstack",
+                  "fips"
+                ]
+              },
+              {
+                "dnsSuffix": "amazonaws.com",
+                "hostname": "{service}.dualstack.{region}.{dnsSuffix}",
+                "tags": [
+                  "dualstack"
+                ]
+              }
+            ]
+          },
+          "endpoints": {
+            "af-south-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.af-south-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-east-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-east-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-east-2": {},
+            "ap-northeast-1": {
+              "hostname": "s3.ap-northeast-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-northeast-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-northeast-2": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-northeast-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-northeast-3": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-northeast-3.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-south-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-south-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-south-2": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-south-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-1": {
+              "hostname": "s3.ap-southeast-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-2": {
+              "hostname": "s3.ap-southeast-2.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-3": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-3.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-4": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-4.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-5": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-5.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ap-southeast-6": {},
+            "ap-southeast-7": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.ap-southeast-7.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "aws-global": {
+              "credentialScope": {
+                "region": "us-east-1"
+              },
+              "hostname": "s3.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ]
+            },
+            "ca-central-1": {
+              "variants": [
+                {
+                  "hostname": "s3-fips.ca-central-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.dualstack.ca-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.ca-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "ca-west-1": {
+              "variants": [
+                {
+                  "hostname": "s3-fips.ca-west-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.dualstack.ca-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.ca-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-central-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-central-2": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-central-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-north-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-north-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-south-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-south-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-south-2": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-south-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-west-1": {
+              "hostname": "s3.eu-west-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-west-2": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-west-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "eu-west-3": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.eu-west-3.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "fips-ca-central-1": {
+              "credentialScope": {
+                "region": "ca-central-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.ca-central-1.amazonaws.com"
+            },
+            "fips-ca-west-1": {
+              "credentialScope": {
+                "region": "ca-west-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.ca-west-1.amazonaws.com"
+            },
+            "fips-us-east-1": {
+              "credentialScope": {
+                "region": "us-east-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-east-1.amazonaws.com"
+            },
+            "fips-us-east-2": {
+              "credentialScope": {
+                "region": "us-east-2"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-east-2.amazonaws.com"
+            },
+            "fips-us-west-1": {
+              "credentialScope": {
+                "region": "us-west-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-west-1.amazonaws.com"
+            },
+            "fips-us-west-2": {
+              "credentialScope": {
+                "region": "us-west-2"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-west-2.amazonaws.com"
+            },
+            "il-central-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.il-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "me-central-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.me-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "me-south-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.me-south-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "mx-central-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.mx-central-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "s3-external-1": {
+              "credentialScope": {
+                "region": "us-east-1"
+              },
+              "hostname": "s3-external-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ]
+            },
+            "sa-east-1": {
+              "hostname": "s3.sa-east-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.sa-east-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "us-east-1": {
+              "hostname": "s3.us-east-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-east-1.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-east-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-east-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "us-east-2": {
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-east-2.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-east-2.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-east-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "us-west-1": {
+              "hostname": "s3.us-west-1.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-west-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "us-west-2": {
+              "hostname": "s3.us-west-2.amazonaws.com",
+              "signatureVersions": [
+                "s3",
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-west-2.amazonaws.com",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-west-2.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-west-2.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            }
+          },
+          "isRegionalized": true,
+          "partitionEndpoint": "aws-global"
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "amazonaws.com.cn",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.amazonwebservices.com.cn",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack",
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.amazonwebservices.com.cn",
+            "hostname": "{service}.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "amazonaws.com.cn",
+      "partition": "aws-cn",
+      "partitionName": "AWS China",
+      "regionRegex": "^cn\\-\\w+\\-\\d+$",
+      "regions": {
+        "cn-north-1": {
+          "description": "China (Beijing)"
+        },
+        "cn-northwest-1": {
+          "description": "China (Ningxia)"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "protocols": [
+              "http",
+              "https"
+            ],
+            "signatureVersions": [
+              "s3v4"
+            ],
+            "variants": [
+              {
+                "dnsSuffix": "amazonaws.com.cn",
+                "hostname": "{service}.dualstack.{region}.{dnsSuffix}",
+                "tags": [
+                  "dualstack"
+                ]
+              }
+            ]
+          },
+          "endpoints": {
+            "cn-north-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.cn-north-1.amazonaws.com.cn",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "cn-northwest-1": {
+              "variants": [
+                {
+                  "hostname": "s3.dualstack.cn-northwest-1.amazonaws.com.cn",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "amazonaws.com",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.aws",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack",
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.aws",
+            "hostname": "{service}.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "amazonaws.com",
+      "partition": "aws-us-gov",
+      "partitionName": "AWS GovCloud (US)",
+      "regionRegex": "^us\\-gov\\-\\w+\\-\\d+$",
+      "regions": {
+        "us-gov-east-1": {
+          "description": "AWS GovCloud (US-East)"
+        },
+        "us-gov-west-1": {
+          "description": "AWS GovCloud (US-West)"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "signatureVersions": [
+              "s3",
+              "s3v4"
+            ],
+            "variants": [
+              {
+                "dnsSuffix": "amazonaws.com",
+                "hostname": "{service}-fips.dualstack.{region}.{dnsSuffix}",
+                "tags": [
+                  "dualstack",
+                  "fips"
+                ]
+              },
+              {
+                "dnsSuffix": "amazonaws.com",
+                "hostname": "{service}.dualstack.{region}.{dnsSuffix}",
+                "tags": [
+                  "dualstack"
+                ]
+              }
+            ]
+          },
+          "endpoints": {
+            "fips-us-gov-east-1": {
+              "credentialScope": {
+                "region": "us-gov-east-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-gov-east-1.amazonaws.com"
+            },
+            "fips-us-gov-west-1": {
+              "credentialScope": {
+                "region": "us-gov-west-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-gov-west-1.amazonaws.com"
+            },
+            "us-gov-east-1": {
+              "hostname": "s3.us-gov-east-1.amazonaws.com",
+              "protocols": [
+                "http",
+                "https"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.us-gov-east-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-gov-east-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            },
+            "us-gov-west-1": {
+              "hostname": "s3.us-gov-west-1.amazonaws.com",
+              "protocols": [
+                "http",
+                "https"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.us-gov-west-1.amazonaws.com",
+                  "tags": [
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3.dualstack.us-gov-west-1.amazonaws.com",
+                  "tags": [
+                    "dualstack"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "c2s.ic.gov",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "c2s.ic.gov",
+      "partition": "aws-iso",
+      "partitionName": "AWS ISO (US)",
+      "regionRegex": "^us\\-iso\\-\\w+\\-\\d+$",
+      "regions": {
+        "us-iso-east-1": {
+          "description": "US ISO East"
+        },
+        "us-iso-west-1": {
+          "description": "US ISO WEST"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "signatureVersions": [
+              "s3v4"
+            ]
+          },
+          "endpoints": {
+            "fips-us-iso-east-1": {
+              "credentialScope": {
+                "region": "us-iso-east-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-iso-east-1.c2s.ic.gov"
+            },
+            "fips-us-iso-west-1": {
+              "credentialScope": {
+                "region": "us-iso-west-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-iso-west-1.c2s.ic.gov"
+            },
+            "us-iso-east-1": {
+              "protocols": [
+                "http",
+                "https"
+              ],
+              "signatureVersions": [
+                "s3v4"
+              ],
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-iso-east-1.c2s.ic.gov",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-iso-east-1.c2s.ic.gov",
+                  "tags": [
+                    "fips"
+                  ]
+                }
+              ]
+            },
+            "us-iso-west-1": {
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-iso-west-1.c2s.ic.gov",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-iso-west-1.c2s.ic.gov",
+                  "tags": [
+                    "fips"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "sc2s.sgov.gov",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "sc2s.sgov.gov",
+      "partition": "aws-iso-b",
+      "partitionName": "AWS ISOB (US)",
+      "regionRegex": "^us\\-isob\\-\\w+\\-\\d+$",
+      "regions": {
+        "us-isob-east-1": {
+          "description": "US ISOB East (Ohio)"
+        },
+        "us-isob-west-1": {
+          "description": "US ISOB West"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "protocols": [
+              "http",
+              "https"
+            ],
+            "signatureVersions": [
+              "s3v4"
+            ]
+          },
+          "endpoints": {
+            "fips-us-isob-east-1": {
+              "credentialScope": {
+                "region": "us-isob-east-1"
+              },
+              "deprecated": true,
+              "hostname": "s3-fips.us-isob-east-1.sc2s.sgov.gov"
+            },
+            "us-isob-east-1": {
+              "variants": [
+                {
+                  "hostname": "s3-fips.dualstack.us-isob-east-1.sc2s.sgov.gov",
+                  "tags": [
+                    "dualstack",
+                    "fips"
+                  ]
+                },
+                {
+                  "hostname": "s3-fips.us-isob-east-1.sc2s.sgov.gov",
+                  "tags": [
+                    "fips"
+                  ]
+                }
+              ]
+            },
+            "us-isob-west-1": {}
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "cloud.adc-e.uk",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "cloud.adc-e.uk",
+      "partition": "aws-iso-e",
+      "partitionName": "AWS ISOE (Europe)",
+      "regionRegex": "^eu\\-isoe\\-\\w+\\-\\d+$",
+      "regions": {
+        "eu-isoe-west-1": {
+          "description": "EU ISOE West"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "protocols": [
+              "http",
+              "https"
+            ],
+            "signatureVersions": [
+              "s3v4"
+            ]
+          },
+          "endpoints": {
+            "eu-isoe-west-1": {}
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "csp.hci.ic.gov",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "csp.hci.ic.gov",
+      "partition": "aws-iso-f",
+      "partitionName": "AWS ISOF",
+      "regionRegex": "^us\\-isof\\-\\w+\\-\\d+$",
+      "regions": {
+        "us-isof-east-1": {
+          "description": "US ISOF EAST"
+        },
+        "us-isof-south-1": {
+          "description": "US ISOF SOUTH"
+        }
+      },
+      "services": {
+        "s3": {
+          "defaults": {
+            "protocols": [
+              "http",
+              "https"
+            ],
+            "signatureVersions": [
+              "s3v4"
+            ]
+          },
+          "endpoints": {
+            "us-isof-east-1": {},
+            "us-isof-south-1": {}
+          }
+        }
+      }
+    },
+    {
+      "defaults": {
+        "hostname": "{service}.{region}.{dnsSuffix}",
+        "protocols": [
+          "https"
+        ],
+        "signatureVersions": [
+          "v4"
+        ],
+        "variants": [
+          {
+            "dnsSuffix": "amazonaws.eu",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.amazonwebservices.eu",
+            "hostname": "{service}-fips.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack",
+              "fips"
+            ]
+          },
+          {
+            "dnsSuffix": "api.amazonwebservices.eu",
+            "hostname": "{service}.{region}.{dnsSuffix}",
+            "tags": [
+              "dualstack"
+            ]
+          }
+        ]
+      },
+      "dnsSuffix": "amazonaws.eu",
+      "partition": "aws-eusc",
+      "partitionName": "AWS EUSC",
+      "regionRegex": "^eusc\\-(de)\\-\\w+\\-\\d+$",
+      "regions": {
+        "eusc-de-east-1": {
+          "description": "AWS European Sovereign Cloud (Germany)"
+        }
+      },
+      "services": {
+        "s3": {
+          "endpoints": {
+            "eusc-de-east-1": {}
+          }
+        }
+      }
+    }
+  ]
+}

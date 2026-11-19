@@ -3,7 +3,7 @@ import HTTPTypes
 import NIOCore
 import NIOFoundationCompat
 import NIOHTTP1
-import SotoS3
+import SotoCore
 import Vapor
 
 /// A ``FileStorageDriver`` backed by Amazon S3, or any S3-compatible endpoint.
